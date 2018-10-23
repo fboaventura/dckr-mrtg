@@ -7,7 +7,7 @@ Docker instance to run [MRTG](https://oss.oetiker.ch/mrtg/) - The Multi Router T
 This instance is published at [Docker Hub](https://hub.docker.com/r/fboaventura/dckr-mrtg/), so it's public available.  All you need to run this instance is:
 
 ```bash
-$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress' fboaventura/dckr-mrtg
+$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" fboaventura/dckr-mrtg
 ```
 
 You can, of course, pass some custom values in order to make it more prone to your usage.  The variables, and their defaults are:
@@ -31,7 +31,7 @@ From the command line:
 
 ```bash
 $ mkdir html conf.d
-$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress' -v `pwd`/html:/usr/share/nginx/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg
+$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" -v `pwd`/html:/usr/share/nginx/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg
 ```
 
 ## docker-compose
