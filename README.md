@@ -1,4 +1,6 @@
 # fboaventura/dckr-mrtg
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Ffboaventura%2Fdckr-mrtg.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Ffboaventura%2Fdckr-mrtg?ref=badge_shield)
+
 
 Docker instance to run [MRTG](https://oss.oetiker.ch/mrtg/) - The Multi Router Traffic Grapher
 
@@ -56,3 +58,7 @@ services:
 ```
 
 Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8080`
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Ffboaventura%2Fdckr-mrtg.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Ffboaventura%2Fdckr-mrtg?ref=badge_large)
