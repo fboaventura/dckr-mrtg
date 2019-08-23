@@ -1,7 +1,7 @@
-FROM alpine:3.9
+FROM alpine:3.10
 
 LABEL maintainer "Frederico Freire Boaventura <frederico@boaventura.net>"
-LABEL version "1.2"
+LABEL version "1.3"
 
 ENV TZ "UTC"
 ENV HOSTS "public:localhost"
