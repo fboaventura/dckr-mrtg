@@ -1,8 +1,5 @@
 FROM alpine:3.10
 
-LABEL maintainer "Frederico Freire Boaventura <frederico@boaventura.net>"
-LABEL version "1.3"
-
 ENV TZ "UTC"
 ENV HOSTS "public:localhost"
 
@@ -19,7 +16,7 @@ CMD ["/usr/sbin/mrtg.sh"]
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.name="MRTG" \
       org.label-schema.description="Multi Router Traffic Grapher." \
-      org.label-schema.url="https://frederico.boaventura.net" \
+      org.label-schema.url="https://frederico.cf" \
       org.label-schema.vcs-url=$VCS_URL \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vendor="$VENDOR" \
