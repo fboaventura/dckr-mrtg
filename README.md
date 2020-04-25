@@ -6,7 +6,7 @@ Docker instance to run [MRTG](https://oss.oetiker.ch/mrtg/) - The Multi Router T
 
 ## How to use
 
-This instance is published at [Docker Hub](https://hub.docker.com/r/fboaventura/dckr-mrtg/), so it's public available.  All you need to run this instance is:
+This instance is published at [Docker Hub](https://hub.docker.com/r/fboaventura/dckr-mrtg/), and all you need to run is:
 
 ```bash
 $ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" fboaventura/dckr-mrtg
@@ -39,7 +39,8 @@ $ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" -v 
 ## docker-compose
 
 ```yaml
-version: "2"
+version: "3.5"
+
 services:
   mrtg:
     image: fboaventura/dckr-mrtg
