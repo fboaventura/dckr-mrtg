@@ -13,12 +13,18 @@ if [ -n "${HOSTS}" ]; then
         COMMUNITY=$(echo $asset | cut -d: -f1)
         HOST=$(echo $asset | cut -d: -f2)
         NAME=$(snmpwalk -Oqv -v2c -c ${COMMUNITY} ${HOST} .1.3.6.1.2.1.1.5)
+        if [ -z "${NAME}" ]; then
+            NAME="${HOST}"
+        fi
         [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]] && /usr/bin/cfgmaker --ifref=name --output=${MRTGDIR}/conf.d/${NAME}.cfg "${COMMUNITY}@${HOST}"
     done
 else
     COMMUNITY=${1:-"public"}
     HOST=${2:-"localhost"}
     NAME=$(snmpwalk -Oqv -v2c -c ${COMMUNITY} ${HOST} .1.3.6.1.2.1.1.5)
+    if [ -z "${NAME}" ]; then
+        NAME="${HOST}"
+    fi
     [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]] && /usr/bin/cfgmaker --ifref=name --output=${MRTGDIR}/conf.d/${NAME}.cfg "${COMMUNITY}@${HOST}"
 fi
 
