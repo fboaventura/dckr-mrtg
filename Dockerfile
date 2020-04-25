@@ -1,4 +1,4 @@
-FROM alpine:3.10
+FROM alpine:3.11
 
 ENV TZ "UTC"
 ENV HOSTS "public:localhost"
@@ -16,7 +16,7 @@ CMD ["/usr/sbin/mrtg.sh"]
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.name="MRTG" \
       org.label-schema.description="Multi Router Traffic Grapher." \
-      org.label-schema.url="https://frederico.cf" \
+      org.label-schema.url="https://fboaventura.dev" \
       org.label-schema.vcs-url=$VCS_URL \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vendor="$VENDOR" \
