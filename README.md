@@ -23,7 +23,7 @@ I'm fixing the `latest` tag to version `2.2.0` and will move forward with the nu
 This instance is published at [Docker Hub](https://hub.docker.com/r/fboaventura/dckr-mrtg/), and all you need to run is:
 
 ```bash
-$ docker run -d -p 8080:80 -e "HOSTS='public:localhost:2,community:ipaddress'" fboaventura/dckr-mrtg
+$ docker run -d -p 8080:80 -e "HOSTS='public:localhost:2,community:ipaddress'" fboaventura/dckr-mrtg:v2.3.0
 ```
 
 You can, of course, pass some custom values to make it more prone to your usage.  The variables and their defaults are:
@@ -54,7 +54,7 @@ From the command line:
 
 ```bash
 $ mkdir html conf.d
-$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" -v `pwd`/html:/mrtg/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg
+$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" -v `pwd`/html:/mrtg/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg:v2.3.0
 ```
 
 ## docker-compose
@@ -64,7 +64,7 @@ version: "3.5"
 
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg
+    image: fboaventura/dckr-mrtg:v2.3.0
     hostname: mrtg
     restart: always
     ports:
