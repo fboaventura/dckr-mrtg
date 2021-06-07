@@ -17,6 +17,12 @@ ADD files/mrtg.cfg /etc/mrtg/mrtg.cfg
 
 CMD ["/usr/sbin/mrtg.sh"]
 
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VENDOR
+ARG VERSION
+ARG AUTHOR
+
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.name="MRTG" \
       org.label-schema.description="Multi Router Traffic Grapher." \
