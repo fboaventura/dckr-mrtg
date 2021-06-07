@@ -11,7 +11,6 @@ RUN apk add --update --no-cache tzdata net-snmp-tools dcron lighttpd bash \
 
 ADD files/mrtg.sh /usr/sbin/mrtg.sh
 ADD files/mrtg.cron /etc/crontabs/root
-ADD files/mrtg-rrd.cgi /mrtg/cgi-bin/mrtg.cgi
 ADD files/14all.cgi /mrtg/cgi-bin/14all.cgi
 ADD files/lighttpd.conf /etc/lighttpd/lighttpd.conf
 ADD files/mrtg.cfg /etc/mrtg/mrtg.cfg
