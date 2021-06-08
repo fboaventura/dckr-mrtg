@@ -110,13 +110,13 @@ my $footer_template = <<"EOT";
   <TR>
     <TD WIDTH=63><A ALT="MRTG"
     HREF="http://ee-staff.ethz.ch/~oetiker/webtools/mrtg/mrtg.html"><IMG
-    BORDER=0 SRC="##ICONDIR##mrtg-l.gif"></A></TD>
+    BORDER=0 SRC="/mrtg-l.png"></A></TD>
     <TD WIDTH=25><A ALT=""
     HREF="http://ee-staff.ethz.ch/~oetiker/webtools/mrtg/mrtg.html"><IMG
-    BORDER=0 SRC="##ICONDIR##mrtg-m.gif"></A></TD>
+    BORDER=0 SRC="/mrtg-m.png"></A></TD>
     <TD WIDTH=388><A ALT=""
     HREF="http://ee-staff.ethz.ch/~oetiker/webtools/mrtg/mrtg.html"><IMG
-    BORDER=0 SRC="##ICONDIR##mrtg-r.gif"></A></TD>
+    BORDER=0 SRC="/mrtg-r.png"></A></TD>
   </TR>
 </TABLE>
 <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
@@ -284,7 +284,7 @@ sub set_graph_params($$$$) {
 		($xs, $ys) = ($cfg->{targets}{'14all*indexgraphsize'}{$log} =~ m/(\d+)[,\s]+(\d+)/)
 			if $cfg->{targets}{'14all*indexgraphsize'}{$log};
 	} else {
-		($xs, $ys) = ($cfg->{targets}{xsize}{$log}, $cfg->{targets}{ysize}{$log});
+		($xs, $ys) = ($cfg->{targets}{xsize}{$log} + 23, $cfg->{targets}{ysize}{$log});
 	}
 	unless ($xs && $ys) {
 		return "cannot get image sizes for graph $png / target $log";
@@ -909,7 +909,7 @@ sub gettextpic($) {
 	unless ($@) {
 		my $ys = @textsplit * (GD::gdMediumBoldFont()->height + 5);
 		my $xs = $len * GD::gdMediumBoldFont()->width();
-		my $im = new GD::Image($xs + 20, $ys + 20);
+		my $im = new GD::Image($xs + 30, $ys + 20);
 		my $back = $im->colorAllocate(255,255,255);
 		$im->transparent($back);
 		my $red = $im->colorAllocate(255,0,0);

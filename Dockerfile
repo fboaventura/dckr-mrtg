@@ -5,7 +5,7 @@ ENV ENABLE_V6 "no"
 ENV HOSTS "public:localhost"
 
 RUN apk add --update --no-cache tzdata net-snmp-tools dcron lighttpd bash \
-        mrtg rrdtool rrdtool-cgi perl-rrd perl-cgi ttf-opensans \
+        mrtg rrdtool rrdtool-cgi perl-rrd perl-cgi font-space-mono-nerd \
     && mkdir -p /etc/mrtg/conf.d \
     && mkdir -p /mrtg/cgi-bin /mrtg/html /mrtg/fonts
 
@@ -25,7 +25,7 @@ ARG AUTHOR
 
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.name="MRTG" \
-      org.label-schema.description="Multi Router Traffic Grapher." \
+      org.label-schema.description="Multi\ Router\ Traffic\ Grapher." \
       org.label-schema.url="https://fboaventura.dev" \
       org.label-schema.vcs-url="https://github.com/fboaventura/dckr-mrtg" \
       org.label-schema.vcs-ref=$VCS_REF \
