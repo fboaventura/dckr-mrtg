@@ -8,7 +8,7 @@ services:
       - "8880:80"
     volumes:
       - "./conf.d:/etc/mrtg/conf.d"
-      - "./html:/usr/share/nginx/html"
+      - "./html:/mrtg/html"
     environment:
         TZ: "Brazil/East"
         HOSTS: 'public:192.168.0.123'
