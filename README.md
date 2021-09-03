@@ -32,19 +32,20 @@ You can, of course, pass some custom values to make it more prone to your usage.
 
 ```dockerfile
 ENV TZ "UTC"
-ENV HOSTS "community:host[:version]"
+ENV HOSTS "community:host[:version[:port]]"
 ENV WEBDIR "/mrtg/html"
 ```
 
 The variable `TZ` will configure the timezone used by the OS and MRTG to show dates and times.
 
-The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The format to be used is `community:host[:version],community:host[:version],...`
+The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The format to be used is `community:host[:version[:port]],community:host[:version:[port]],...`
 
   Where:
 
   * **_community_**: is the SNMP community with read access
   * **_host_**: is the IP address or hostname (if Docker can resolve it)
   * **_version_**: can be `1` or `2` for SNMP **1** or **2c**.  If left empty it will assume **2c**.
+  * **_port_**: can be any custom port.  There is one point of attention, if the port is needed then the version must be set.
 
 ## Persistency
 
@@ -54,7 +55,7 @@ From the command line:
 
 ```bash
 $ mkdir html conf.d
-$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" -v `pwd`/html:/mrtg/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg:v2.3.0
+$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" -v `pwd`/html:/mrtg/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg:v2.3.1
 ```
 
 ## docker-compose
@@ -64,18 +65,18 @@ version: "3.5"
 
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:v2.3.0
+    image: fboaventura/dckr-mrtg:v2.3.1
     hostname: mrtg
     restart: always
     ports:
       - "8880:80"
     volumes:
       - "./conf.d:/etc/mrtg/conf.d"
-      - "./html:/usr/share/nginx/html"
+      - "./html:/mrtg/html"
     environment:
         TZ: "Brazil/East"
         HOSTS: "public:192.168.0.123"
-        WEBDIR: "/usr/share/nginx/html"
+        WEBDIR: "/mrtg/html"
     tmpfs:
       - "/run"
 ```
@@ -84,31 +85,11 @@ Once the instance is running, all you have to do is open a web browser and point
 
 ## ChangeLog
 
-### v1.0.0 - 2017.08
+### v2.3.1 - 2021.09.03
 
-- First version
-
-### v1.1 - 2018.10
-
-- 2018.10 - Updated MRTG and Alpine versions
-
-### v1.2 - 2019.05
-
-- Updated Alpine version
-
-### v1.3 - 2019.08
-
-- Updated Alpine version
-
-### v2.1.1 - 2019.10
-
-- Updated Alpine and MRTG Versions
-
-### v2.2.0 - 2020.04
-
-- Updated Alpine version
-- Updated `docker-compose.yml` to version `3.5`
-- Fixed the fallback for the empty `HOST`
+- Fixed README.md example settings for HTML folder (#4)
+- Fixed the lighttpd daemon flag
+- Added support for a custom port
 
 ### v2.3.0 - 2021.06
 
@@ -120,6 +101,31 @@ Once the instance is running, all you have to do is open a web browser and point
 - Fixed `latest` tag to `v2.2.0` to prevent compatibility breaking
 - Changed the versioning schema to support only tagged versions
 
+### v2.2.0 - 2020.04
+
+- Updated Alpine version
+- Updated `docker-compose.yml` to version `3.5`
+- Fixed the fallback for the empty `HOST`
+
+### v2.1.1 - 2019.10
+
+- Updated Alpine and MRTG Versions
+
+### v1.3 - 2019.08
+
+- Updated Alpine version
+
+### v1.2 - 2019.05
+
+- Updated Alpine version
+
+### v1.1 - 2018.10
+
+- 2018.10 - Updated MRTG and Alpine versions
+
+### v1.0.0 - 2017.08
+
+- First version
 
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Ffboaventura%2Fdckr-mrtg.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Ffboaventura%2Fdckr-mrtg?ref=badge_large)
