@@ -34,6 +34,7 @@ You can, of course, pass some custom values to make it more prone to your usage.
 ENV TZ "UTC"
 ENV HOSTS "community:host[:version[:port]]"
 ENV WEBDIR "/mrtg/html"
+ENV PATHPREFIX "/"
 ```
 
 The variable `TZ` will configure the timezone used by the OS and MRTG to show dates and times.
@@ -46,6 +47,10 @@ The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The
   * **_host_**: is the IP address or hostname (if Docker can resolve it)
   * **_version_**: can be `1` or `2` for SNMP **1** or **2c**.  If left empty it will assume **2c**.
   * **_port_**: can be any custom port.  There is one point of attention, if the port is needed then the version must be set.
+
+The variable `PATHPREFIX` (default: /) is the path passed to indexmaker to prefix URLs to rrdviewer or any images.
+ The format must NOT include a trailing slash.  For example, "/mrtg"
+ Used with a reverse proxy, this allows mrtg to exist at a subpath, rather than the root.
 
 ## Persistency
 
