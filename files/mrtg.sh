@@ -3,7 +3,7 @@
 MRTGDIR=${MRTGDIR:-"/etc/mrtg"}
 WEBDIR=${WEBDIR:-"/mrtg/html"}
 MRTGCFG=${MRTGDIR}/mrtg.cfg
-PATHPREFIX=${PATHPREFIX:-"/"}
+PATHPREFIX=${PATHPREFIX:-""}
 
 [[ ! -d "${MRTGDIR}" ]] && mkdir -p ${MRTGDIR}
 [[ ! -d "${WEBDIR}" ]] && mkdir -p ${WEBDIR}
