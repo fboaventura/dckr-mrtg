@@ -1,6 +1,9 @@
 #!/bin/bash
 # $IMAGE_NAME var is injected into the build so the tag is correct.
+echo "=-=-=-=-= DEBUG  INFO =-=-=-=-="
 echo $IMAGE_NAME
+echo "Using BUILD_INFO=${BUILD_INFO}"
+echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 
 docker buildx build \
   --push \

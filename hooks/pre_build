@@ -1,14 +1,14 @@
 #!/bin/bash
 # Register and reset qemu for multi arch building
-BUILDX_VERSION="0.9.1"
-mkdir -p ~/.docker/cli-plugins
-curl --silent -L "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx
-chmod a+x ~/.docker/cli-plugins/docker-buildx
-docker buildx version
+#BUILDX_VERSION="0.9.1"
+#mkdir -p ~/.docker/cli-plugins
+#curl --silent -L "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx
+#chmod a+x ~/.docker/cli-plugins/docker-buildx
 
-docker run --rm --privileged multiarch/qemu-user-static:register --reset
-docker run --rm --privileged tonistiigi/binfmt:latest --install all
+#docker run --rm --privileged multiarch/qemu-user-static:register --reset
+#docker run --rm --privileged tonistiigi/binfmt:latest --install all
+echo "=-=-=-=-= Build Setup =-=-=-=-="
+docker buildx version
 docker buildx ls
 docker buildx create --name multiarch --driver docker-container --use
 docker buildx inspect --bootstrap --builder multiarch
-
