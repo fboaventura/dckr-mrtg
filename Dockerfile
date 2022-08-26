@@ -1,4 +1,4 @@
-FROM alpine:3.13
+FROM alpine:3.15
 
 ENV TZ "UTC"
 ENV ENABLE_V6 "no"
