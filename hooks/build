@@ -1,5 +1,7 @@
 #!/bin/bash
 # $IMAGE_NAME var is injected into the build so the tag is correct.
+echo $IMAGE_NAME
+
 docker buildx build \
   --push \
   --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
