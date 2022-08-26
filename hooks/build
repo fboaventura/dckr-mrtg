@@ -4,11 +4,11 @@ echo "=-=-=-=-= DEBUG  INFO =-=-=-=-="
 echo $IMAGE_NAME
 echo "Using BUILD_INFO=${BUILD_INFO}"
 echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
-export IMAGE_NAME=${}
 docker buildx build \
   --push \
   --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
   --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
   --build-arg VERSION=$(cat VERSION) \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
-	-t ${IMAGE_NAME#*/} .
+  --tag $DOCKER_REPO \
+	--tag ${IMAGE_NAME#index.docker.io/} .
