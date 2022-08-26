@@ -73,6 +73,8 @@ services:
     volumes:
       - "./conf.d:/etc/mrtg/conf.d"
       - "./html:/mrtg/html"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"
     environment:
         TZ: "Brazil/East"
         HOSTS: "public:192.168.0.123"
