@@ -1,9 +1,6 @@
 #!/bin/bash
 # $IMAGE_NAME var is injected into the build so the tag is correct.
-echo "=-=-=-=-= DEBUG  INFO =-=-=-=-="
-echo $IMAGE_NAME
-echo "Using BUILD_INFO=${BUILD_INFO}"
-echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+echo "=-=-=-=-= Building Images =-=-=-=-="
 docker buildx build \
   --push \
   --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
@@ -11,4 +8,4 @@ docker buildx build \
   --build-arg VERSION=$(cat VERSION) \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
   --tag $DOCKER_REPO \
-	--tag ${IMAGE_NAME#index.docker.io/} .
+	--tag ${IMAGE_NAME} .
