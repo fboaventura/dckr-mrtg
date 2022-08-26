@@ -12,21 +12,25 @@ Docker instance to run [MRTG] - The Multi Router Traffic Grapher
 
 ## Versioning
 
-Until version `2.2.0`, I used [NGINX], and all the HTML files were statically built by [MRTG].  From `2.3.0` onwards, I've implemented the support for [rrdtool](https://oss.oetiker.ch/rrdtool/) and replaced NGINX with [LIGHTTPD], since I needed the support to run CGI scripts.
+Until version `2.2.0`, I used [NGINX], and all the HTML files were statically built by [MRTG].  
+From `2.3.0` onwards, I've implemented the support for [rrdtool](https://oss.oetiker.ch/rrdtool/) and 
+replaced NGINX with [LIGHTTPD], since I needed the support to run CGI scripts.
 
-There is a possible breaking change because I've moved the `WEBDIR` from `/usr/share/nginx/html` to `/mrtg/html`. So please, check all your configuration files if you are getting some path-related error on the graphics.  It's also possible to pass the environment variable `WEBDIR` on the `docker-compose.yml` or command line (`-e`).
-
-I'm fixing the `latest` tag to version `2.2.0` and will move forward with the numbered tagged versions to avoid undesired behavior.
+From version `2.3.0` the `WEBDIR` went from `/usr/share/nginx/html` to `/mrtg/html`. 
+So please, check all your configuration files if you are getting some path-related error on the graphics.  
+It's also possible to pass the environment variable `WEBDIR` on the `docker-compose.yml` or command line (`-e`).
 
 ## How to use
 
-This instance is published at [Docker Hub](https://hub.docker.com/r/fboaventura/dckr-mrtg/), and all you need to run is:
+This instance is published at [Docker Hub], and all 
+you need to run is:
 
 ```bash
 $ docker run -d -p 8080:80 -e "HOSTS='public:localhost:2,community:ipaddress'" fboaventura/dckr-mrtg:v2.3.0
 ```
 
-You can, of course, pass some custom values to make it more prone to your usage.  The variables and their defaults are:
+You can, of course, pass some custom values to make it more prone to your usage.  The variables and 
+their defaults are:
 
 ## Environment
 
@@ -39,22 +43,25 @@ ENV PATHPREFIX ""
 
 The variable `TZ` will configure the timezone used by the OS and MRTG to show dates and times.
 
-The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The format to be used is `community:host[:version[:port]],community:host[:version:[port]],...`
+The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The format to be used 
+is `community:host[:version[:port]],community:host[:version:[port]],...`
 
   Where:
 
   * **_community_**: is the SNMP community with read access
   * **_host_**: is the IP address or hostname (if Docker can resolve it)
   * **_version_**: can be `1` or `2` for SNMP **1** or **2c**.  If left empty it will assume **2c**.
-  * **_port_**: can be any custom port.  There is one point of attention, if the port is needed then the version must be set.
+  * **_port_**: can be any custom port.  There is one point of attention, if the port is needed, then the version must be set.
 
-The variable `PATHPREFIX` (default: empty string) is the path passed to indexmaker to prefix URLs to rrdviewer or any images.
- The format must NOT include a trailing slash.  For example, "/mrtg"
- Used with a reverse proxy, this allows mrtg to exist at a subpath, rather than the root.
+The variable `PATHPREFIX` (default: empty string) is the path passed to `indexmaker` to prefix URLs to `rrdviewer` or 
+any images.
+ The format must **NOT** include a trailing slash.  For example, "/mrtg"
+ Used with a reverse proxy, this allows mrtg to exist at a subpath rather than the root.
 
-## Persistency
+## Persistence
 
-If you plan on keeping this instance running as your MRTG service, you may pass volumes to be used in order to save the information produced by MRTG.  To achieve this:
+If you plan on keeping this instance running as your MRTG service, you may pass volumes 
+to be used to save the information produced by MRTG.  To achieve this:
 
 From the command line:
 
@@ -70,7 +77,7 @@ version: "3.5"
 
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:v2.3.1
+    image: fboaventura/dckr-mrtg:v2.4.0
     hostname: mrtg
     restart: always
     ports:
@@ -91,6 +98,18 @@ services:
 Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8080`
 
 ## ChangeLog
+
+### v2.4.0 - 2022.08.26
+
+- Enabled multi-arch building and images at [Docker Hub]
+- Released the Docker `latest` tag to follow the releases
+- Bumped Alpine version
+
+### v2.3.2 - 2022.08.25
+
+- Added `/etc/localtime` to docker example (@michaelkrieger)
+- Added the option to allow use of _Path Prefix_ (@michaelkrieger)
+- Updated Alpine version
 
 ### v2.3.1 - 2021.09.03
 
@@ -142,3 +161,4 @@ Once the instance is running, all you have to do is open a web browser and point
 [MRTG]: https://oss.oetiker.ch/mrtg/
 [NGINX]: https://nginx.org
 [LIGHTTPD]: http://www.lighttpd.net/
+[Docker Hub]: https://hub.docker.com/r/fboaventura/dckr-mrtg/

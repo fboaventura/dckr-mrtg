@@ -1,0 +1,7 @@
+#!/bin/bash
+# Register and reset qemu for multi arch building
+echo "=-=-=-=-= Build Setup =-=-=-=-="
+docker buildx version
+docker buildx ls
+docker buildx create --name multiarch --driver docker-container --use
+docker buildx inspect --bootstrap --builder multiarch
