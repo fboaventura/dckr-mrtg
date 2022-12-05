@@ -1,0 +1,26 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+ 
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+      "ghcr.io/devcontainers/features/common-utils:1": {},
+       "ghcr.io/devcontainers/features/azure-cli:1": {},
+         "ghcr.io/stuartleeks/dev-container-features/azure-cli-persistence:0": {},
+           "ghcr.io/devcontainers/features/git:1": {},
+             "ghcr.io/devcontainers/features/git-lfs:1": {},
+               "ghcr.io/devcontainers/features/github-cli:1": {},
+                 "ghcr.io/devcontainers-contrib/features/glances:1": {},
+                   "ghcr.io/devcontainers/features/go:1": {},
+                     "ghcr.io/devcontainers/features/desktop-lite:1": {},
+                       "ghcr.io/devcontainers-contrib/features/vtop:1": {},
+                         "ghcr.io/devcontainers-contrib/features/ninja-asdf:1": {},
+                           "ghcr.io/devcontainers/features/python:1": {},
+                             "ghcr.io/devcontainers-contrib/features/tldr:1": {},
+                               "ghcr.io/devcontainers/features/node:1": {},
+                                 "ghcr.io/devcontainers/features/ruby:1": {},
+                                  "ghcr.io/devcontainers/features/rust:1": {},
+                                    "ghcr.io/devcontainers/features/sshd:1": {},
+                                      "ghcr.io/stuartleeks/dev-container-features/shell-history:0": {}
+  }
+                                      
+}
