@@ -5,6 +5,9 @@ WEBDIR=${WEBDIR:-"/mrtg/html"}
 MRTGCFG=${MRTGDIR}/mrtg.cfg
 PATHPREFIX=${PATHPREFIX:-""}
 
+usermod -u ${USERID} lighttpd
+groupmod -g ${GROUPID} lighttpd
+
 [[ ! -d "${MRTGDIR}" ]] && mkdir -p ${MRTGDIR}
 [[ ! -d "${WEBDIR}" ]] && mkdir -p ${WEBDIR}
 
