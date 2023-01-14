@@ -52,7 +52,12 @@ sleep 2
 env LANG=C /usr/bin/mrtg ${MRTGCFG}
 sleep 2
 env LANG=C /usr/bin/mrtg ${MRTGCFG}
-/usr/bin/indexmaker --columns=1 ${MRTGCFG} -rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --icondir=/ --prefix=${PATHPREFIX}/ >> ${WEBDIR}/index.html
+
+# Only run indexmaker if the index file does not exist. Without this, each container restart the index will be regenerated and appended to the existing file.
+if [ ! -e "${WEBDIR}/index.html" ]; then
+   /usr/bin/indexmaker --columns=1 ${MRTGCFG} -rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --icondir=/ --prefix=${PATHPREFIX}/ >> ${WEBDIR}/index.html
+fi
+
 chown -R lighttpd:lighttpd ${WEBDIR}
 
 /usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf -D &
