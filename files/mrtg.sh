@@ -5,6 +5,9 @@ WEBDIR=${WEBDIR:-"/mrtg/html"}
 MRTGCFG=${MRTGDIR}/mrtg.cfg
 PATHPREFIX=${PATHPREFIX:-""}
 
+usermod -u ${USERID} lighttpd
+groupmod -g ${GROUPID} lighttpd
+
 [[ ! -d "${MRTGDIR}" ]] && mkdir -p ${MRTGDIR}
 [[ ! -d "${WEBDIR}" ]] && mkdir -p ${WEBDIR}
 
@@ -52,7 +55,17 @@ sleep 2
 env LANG=C /usr/bin/mrtg ${MRTGCFG}
 sleep 2
 env LANG=C /usr/bin/mrtg ${MRTGCFG}
-/usr/bin/indexmaker --columns=1 ${MRTGCFG} -rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --icondir=/ --prefix=${PATHPREFIX}/ >> ${WEBDIR}/index.html
+
+# Only run indexmaker when regeneration is wanted.
+if [ $REGENERATEHTML == "yes" ]; then
+  echo "Regenerating HTML"
+  if [ -e "${WEBDIR}/index.html" ]; then
+     mv -f "${WEBDIR}/index.html" "${WEBDIR}/index.old"
+  fi
+  /usr/bin/indexmaker --columns=1 ${MRTGCFG} -rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --icondir=/ --prefix=${PATHPREFIX}/ $INDEXMAKEROPTIONS > ${WEBDIR}/index.html
+fi
+
+
 chown -R lighttpd:lighttpd ${WEBDIR}
 
 /usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf -D &
