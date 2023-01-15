@@ -5,6 +5,8 @@ ENV ENABLE_V6 "no"
 ENV HOSTS "public:localhost"
 ENV USERID "100"
 ENV GROUPID "101"
+ENV REGENERATEHTML "yes"
+ENV INDEXMAKEROPTIONS ""
 
 RUN apk add --update --no-cache tzdata net-snmp-tools dcron lighttpd bash \
         mrtg rrdtool rrdtool-cgi perl-rrd perl-cgi font-space-mono-nerd shadow \

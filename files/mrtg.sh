@@ -56,10 +56,15 @@ env LANG=C /usr/bin/mrtg ${MRTGCFG}
 sleep 2
 env LANG=C /usr/bin/mrtg ${MRTGCFG}
 
-# Only run indexmaker if the index file does not exist. Without this, each container restart the index will be regenerated and appended to the existing file.
-if [ ! -e "${WEBDIR}/index.html" ]; then
-   /usr/bin/indexmaker --columns=1 ${MRTGCFG} -rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --icondir=/ --prefix=${PATHPREFIX}/ >> ${WEBDIR}/index.html
+# Only run indexmaker when regeneration is wanted.
+if [ $REGENERATEHTML == "yes" ]; then
+  echo "Regenerating HTML"
+  if [ -e "${WEBDIR}/index.html" ]; then
+     mv -f "${WEBDIR}/index.html" "${WEBDIR}/index.old"
+  fi
+  /usr/bin/indexmaker --columns=1 ${MRTGCFG} -rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --icondir=/ --prefix=${PATHPREFIX}/ $INDEXMAKEROPTIONS > ${WEBDIR}/index.html
 fi
+
 
 chown -R lighttpd:lighttpd ${WEBDIR}
 

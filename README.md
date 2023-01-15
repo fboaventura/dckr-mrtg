@@ -26,7 +26,7 @@ This instance is published at [Docker Hub], and all
 you need to run is:
 
 ```bash
-$ docker run -d -p 8080:80 -e "HOSTS='public:localhost:2,community:ipaddress'" fboaventura/dckr-mrtg:v2.3.0
+$ docker run -d -p 8880:80 -e "HOSTS='public:localhost:2,community:ipaddress'" fboaventura/dckr-mrtg:latest
 ```
 
 You can, of course, pass some custom values to make it more prone to your usage.  The variables and 
@@ -39,6 +39,10 @@ ENV TZ "UTC"
 ENV HOSTS "community:host[:version[:port]]"
 ENV WEBDIR "/mrtg/html"
 ENV PATHPREFIX ""
+ENV USERID "100"
+ENV GROUPID "101"
+ENV REGENERATEHTML "yes"
+ENV INDEXMAKEROPTIONS ""
 ```
 
 The variable `TZ` will configure the timezone used by the OS and MRTG to show dates and times.
@@ -58,6 +62,18 @@ any images.
  The format must **NOT** include a trailing slash.  For example, "/mrtg"
  Used with a reverse proxy, this allows mrtg to exist at a subpath rather than the root.
 
+The variable `USERID` (default: 100) defines the userid for the lighttpd user. The files in the html directory will be owned by this user.
+ Normally this value should be set to 1000 (or above), depending on your needs for mapped volumes.
+
+The variable `GROUPID` (default: 101) defines the groupid for the lighttpd user.
+ Normally this value should be set to the same value as `USERID`, but other values can be used depending on your needs.
+
+The variable `REGENERATEHTML` (default: "yes") determines if the index.html file will be regenerated at container restart.
+ The original index.html will be renamed index.old (overwriting any earlier file with that name).
+ You should set this value to anything other than "yes" if you have any custom changes to index.html that you do not want overwritten at container restart.
+
+The variable `INDEXMAKEROPTIONS` (default: empty string) allows you to add any extra options passed to `indexmaker`, e.g. `--nolegend`.
+
 ## Persistence
 
 If you plan on keeping this instance running as your MRTG service, you may pass volumes 
@@ -67,7 +83,7 @@ From the command line:
 
 ```bash
 $ mkdir html conf.d
-$ docker run -d -p 8080:80 -e "HOSTS='public:localhost,community:ipaddress'" -v `pwd`/html:/mrtg/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg:v2.3.1
+$ docker run -d -p 8880:80 -e "HOSTS='public:localhost,community:ipaddress'" -v `pwd`/html:/mrtg/html -v `pwd`/conf.d:/etc/mrtg/conf.d fboaventura/dckr-mrtg:latest
 ```
 
 ## docker-compose
@@ -77,7 +93,7 @@ version: "3.5"
 
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:v2.4.0
+    image: fboaventura/dckr-mrtg:latest
     hostname: mrtg
     restart: always
     ports:
@@ -91,13 +107,21 @@ services:
         TZ: "Brazil/East"
         HOSTS: "public:192.168.0.123"
         WEBDIR: "/mrtg/html"
+        USERID: 1000
+        GROUPID: 1000
     tmpfs:
       - "/run"
 ```
 
-Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8080`
+Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8880`
 
 ## ChangeLog
+### v2.5.0 - 2023.01.15
+- Added the ability to set `USERID` and `GROUPID` for volume mapping scenarios (@TweakM)
+- Added the option to not regenerate the index.html file, applicable when custom/manual changes to this file have been made  (@TweakM)
+- Added the ability to specify additional options for `indexmaker` (allowing more customizations)  (@TweakM)
+- Updated documentation
+- Fixed typo's
 
 ### v2.4.0 - 2022.08.26
 

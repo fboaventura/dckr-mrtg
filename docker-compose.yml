@@ -14,5 +14,7 @@ services:
         HOSTS: 'public:192.168.0.123'
         USERID: 100
         GROUPID: 101
+        REGENERATEHTML: "yes"
+        INDEXMAKEROPTIONS: ""
     tmpfs:
       - "/run"
