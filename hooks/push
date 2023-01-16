@@ -1,15 +1,22 @@
 #!/bin/bash
 set -x
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
-docker push $DOCKER_REPO
-docker push $DOCKER_REPO:latest
+docker push "${DOCKER_REPO}"
+docker push "${DOCKER_REPO}:latest"
 docker push "${IMAGE_NAME}"
 docker push "${IMAGE_NAME}:latest"
 
 echo "=-=-=-=-= Post Push =-=-=-=-="
-docker manifest create $DOCKER_REPO $DOCKER_REPO-linux-arm64 $DOCKER_REPO-linux-amd64 $DOCKER_REPO-linux-arm $DOCKER_REPO-linux-armv7
-docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-arm --os linux --arch arm
-docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-armv7 --os linux --arch arm --variant v7
-docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-arm64 --os linux --arch arm64 --variant v8
-docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-amd64 --os linux --arch amd64
-docker manifest push $DOCKER_REPO
+docker manifest create "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-arm64 "${DOCKER_REPO}"-linux-amd64 "${DOCKER_REPO}"-linux-arm "${DOCKER_REPO}"-linux-armv7
+docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-arm --os linux --arch arm
+docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-armv7 --os linux --arch arm --variant v7
+docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-arm64 --os linux --arch arm64 --variant v8
+docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-amd64 --os linux --arch amd64
+docker manifest push "${DOCKER_REPO}"
+
+docker manifest create "${DOCKER_REPO}:latest" "${DOCKER_REPO}"-linux-arm64 "${DOCKER_REPO}"-linux-amd64 "${DOCKER_REPO}"-linux-arm "${DOCKER_REPO}"-linux-armv7
+docker manifest annotate "${DOCKER_REPO}:latest" "${DOCKER_REPO}"-linux-arm --os linux --arch arm
+docker manifest annotate "${DOCKER_REPO}:latest" "${DOCKER_REPO}"-linux-armv7 --os linux --arch arm --variant v7
+docker manifest annotate "${DOCKER_REPO}:latest" "${DOCKER_REPO}"-linux-arm64 --os linux --arch arm64 --variant v8
+docker manifest annotate "${DOCKER_REPO}:latest" "${DOCKER_REPO}"-linux-amd64 --os linux --arch amd64
+docker manifest push "${DOCKER_REPO}:latest"
