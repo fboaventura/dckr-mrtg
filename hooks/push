@@ -1,5 +1,5 @@
 #!/bin/bash
-set -o x
+set -x
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
 docker push $DOCKER_REPO
 docker push $DOCKER_REPO:latest

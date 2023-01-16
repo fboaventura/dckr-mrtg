@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 # Register and reset qemu for multi arch building
 echo "=-=-=-=-= Build Setup =-=-=-=-="
 docker buildx version
