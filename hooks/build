@@ -2,6 +2,18 @@
 set -o x
 # $IMAGE_NAME var is injected into the build so the tag is correct.
 echo "=-=-=-=-= Building Images =-=-=-=-="
+echo docker buildx build \
+  --push \
+  --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
+  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+  --build-arg VERSION=$(cat VERSION) \
+  --build-arg VCS_REF=$(git rev-parse --short HEAD) \
+  --tag $DOCKER_REPO \
+  --tag "${DOCKER_REPO#index.docker.io/}" \
+  --tag "${DOCKER_REPO#index.docker.io/}:latest" \
+	--tag "${IMAGE_NAME#index.docker.io/}" \
+	--tag "${IMAGE_NAME}" .
+
 docker buildx build \
   --push \
   --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
@@ -12,102 +24,4 @@ docker buildx build \
   --tag "${DOCKER_REPO#index.docker.io/}" \
   --tag "${DOCKER_REPO#index.docker.io/}:latest" \
 	--tag "${IMAGE_NAME#index.docker.io/}" \
-	--tag "${IMAGE_NAME#index.docker.io/}:latest" .
-
-# Path: hooks/push
-
-
-## Path: hooks/post_build
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Post Build =-=-=-=-="
-#docker manifest create $DOCKER_REPO $DOCKER_REPO-linux-arm64 $DOCKER_REPO-linux-amd64 $DOCKER_REPO-linux-arm $DOCKER_REPO-linux-armv7
-#docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-arm --os linux --arch arm
-#docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-armv7 --os linux --arch arm --variant v7
-#docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-arm64 --os linux --arch arm64 --variant v8
-#docker manifest annotate $DOCKER_REPO $DOCKER_REPO-linux-amd64 --os linux --arch amd64
-#docker manifest push $DOCKER_REPO
-#
-## Path: hooks/post_checkout
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Post Checkout =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/pre_build
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Pre Build =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/pre_push
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Pre Push =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/pre_command
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Pre Command =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/post_command
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Post Command =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/post_test
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Post Test =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/pre_test
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Pre Test =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/pre_checkout
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Pre Checkout =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/post_checkout
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Post Checkout =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/command
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Command =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/test
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Test =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
-#
-## Path: hooks/build
-##!/bin/bash
-#set -o x
-#echo "=-=-=-=-= Build =-=-=-=-="
-#echo "DOCKER_REPO=$DOCKER_REPO" >> $BUILDKITE_ENV_FILE
-#echo "IMAGE_NAME=$IMAGE_NAME" >> $BUILDKITE_ENV_FILE
+	--tag "${IMAGE_NAME}" .
