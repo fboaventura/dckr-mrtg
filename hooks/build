@@ -8,4 +8,5 @@ docker buildx build \
   --build-arg VERSION=$(cat VERSION) \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
   --tag $DOCKER_REPO \
-	--tag ${IMAGE_NAME} .
+	--tag ${IMAGE_NAME#index.docker.io/} \
+	--tag ${IMAGE_NAME#index.docker.io/} .
