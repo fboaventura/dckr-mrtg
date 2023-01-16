@@ -101,7 +101,7 @@ version: "3.5"
 
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:latest
+    image: fboaventura/dckr-mrtg:2.5.0
     hostname: mrtg
     restart: always
     ports:
