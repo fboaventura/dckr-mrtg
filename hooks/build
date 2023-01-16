@@ -32,10 +32,4 @@ docker buildx build \
   --tag "${DOCKER_REPO}:${DOCKER_TAG}" \
   --tag "${DOCKER_REPO#index.docker.io/}" \
   --tag "${DOCKER_REPO#index.docker.io/}:${DOCKER_TAG}" \
-  --tag "${DOCKER_REPO#index.docker.io/}:latest" \
-	--tag "${IMAGE_NAME#index.docker.io/}" \
-	--tag "${IMAGE_NAME#index.docker.io/}:${DOCKER_TAG}" \
-	--tag "${IMAGE_NAME#index.docker.io/}:latest" \
-	--tag "${IMAGE_NAME}" \
-	--tag "${IMAGE_NAME}:${DOCKER_TAG}" \
-	--tag "${IMAGE_NAME}:latest" .
+  --tag "${DOCKER_REPO#index.docker.io/}:latest" .
