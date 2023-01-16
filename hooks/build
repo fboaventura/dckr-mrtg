@@ -3,23 +3,17 @@ set -x
 # $IMAGE_NAME var is injected into the build so the tag is correct.
 echo "=-=-=-=-= Building Images =-=-=-=-="
 echo docker buildx build \
-  --push \
   --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --build-arg VERSION=$(cat VERSION) \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
   --tag "${DOCKER_REPO}:latest" \
-  --tag "${DOCKER_REPO}:${DOCKER_TAG}" \
-  --tag "${DOCKER_REPO#index.docker.io/}:${DOCKER_TAG}" \
-  --tag "${DOCKER_REPO#index.docker.io/}:latest" .
+  --tag "${IMAGE_NAME}" .
 
 docker buildx build \
-  --push \
   --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --build-arg VERSION=$(cat VERSION) \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
   --tag "${DOCKER_REPO}:latest" \
-  --tag "${DOCKER_REPO}:${DOCKER_TAG}" \
-  --tag "${DOCKER_REPO#index.docker.io/}:${DOCKER_TAG}" \
-  --tag "${DOCKER_REPO#index.docker.io/}:latest" .
+  --tag "${IMAGE_NAME}" .
