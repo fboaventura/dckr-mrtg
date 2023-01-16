@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o x
 # $IMAGE_NAME var is injected into the build so the tag is correct.
 echo "=-=-=-=-= Building Images =-=-=-=-="
 docker buildx build \
@@ -8,5 +9,5 @@ docker buildx build \
   --build-arg VERSION=$(cat VERSION) \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
   --tag $DOCKER_REPO \
-	--tag ${IMAGE_NAME#index.docker.io/} \
-	--tag ${IMAGE_NAME#index.docker.io/} .
+	--tag "${IMAGE_NAME#index.docker.io/}" \
+	--tag "${IMAGE_NAME#index.docker.io/}" .
