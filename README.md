@@ -76,6 +76,14 @@ The variable `INDEXMAKEROPTIONS` (default: empty string) allows you to add any e
 
 ## Persistence
 
+The container will create the following directories:
+
+### Volumes
+
+* `/mrtg/etc`: where the configuration files are stored
+* `/mrtg/html`: where the HTML files are stored
+* `/mrtg/rrd`: where the RRD files are stored
+
 If you plan on keeping this instance running as your MRTG service, you may pass volumes 
 to be used to save the information produced by MRTG.  To achieve this:
 
@@ -93,7 +101,7 @@ version: "3.5"
 
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:latest
+    image: fboaventura/dckr-mrtg:2.5.0
     hostname: mrtg
     restart: always
     ports:
@@ -116,12 +124,28 @@ services:
 Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8880`
 
 ## ChangeLog
+### v2.5.1 - 2023.01.15
+- Fixed the auto-build to publish multi-arch versions and documentation
+- Added volume information to README.md
+
 ### v2.5.0 - 2023.01.15
 - Added the ability to set `USERID` and `GROUPID` for volume mapping scenarios (@TweakM)
 - Added the option to not regenerate the index.html file, applicable when custom/manual changes to this file have been made  (@TweakM)
 - Added the ability to specify additional options for `indexmaker` (allowing more customizations)  (@TweakM)
 - Updated documentation
 - Fixed typo's
+
+### v2.4.0 - 2022.08.26
+
+- Enabled multi-arch building and images at [Docker Hub]
+- Released the Docker `latest` tag to follow the releases
+- Bumped Alpine version
+
+### v2.3.2 - 2022.08.25
+
+- Added `/etc/localtime` to docker example (@michaelkrieger)
+- Added the option to allow use of _Path Prefix_ (@michaelkrieger)
+- Updated Alpine version
 
 ### v2.4.0 - 2022.08.26
 
