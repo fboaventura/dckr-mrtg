@@ -1,20 +1,11 @@
 #!/bin/bash
 set -x
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
-docker push "${DOCKER_REPO}:latest"
-docker push "${IMAGE_NAME}"
-
-echo "=-=-=-=-= Post Push =-=-=-=-="
-docker manifest create "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-arm64 "${DOCKER_REPO}"-linux-amd64 "${DOCKER_REPO}"-linux-arm "${DOCKER_REPO}"-linux-armv7
-docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-arm --os linux --arch arm
-docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-armv7 --os linux --arch arm --variant v7
-docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-arm64 --os linux --arch arm64 --variant v8
-docker manifest annotate "${DOCKER_REPO}" "${DOCKER_REPO}"-linux-amd64 --os linux --arch amd64
-docker manifest push "${DOCKER_REPO}"
-
-docker manifest create "${DOCKER_REPO}:${DOCKER_TAG}" "${DOCKER_REPO}-linux-arm64:${DOCKER_TAG}" "${DOCKER_REPO}-linux-amd64:${DOCKER_TAG}" "${DOCKER_REPO}-linux-arm:${DOCKER_TAG}" "${DOCKER_REPO}-linux-armv7:${DOCKER_TAG}"
-docker manifest annotate "${DOCKER_REPO}:${DOCKER_TAG}" "${DOCKER_REPO}-linux-arm:${DOCKER_TAG}" --os linux --arch arm
-docker manifest annotate "${DOCKER_REPO}:${DOCKER_TAG}" "${DOCKER_REPO}-linux-armv7:${DOCKER_TAG}" --os linux --arch arm --variant v7
-docker manifest annotate "${DOCKER_REPO}:${DOCKER_TAG}" "${DOCKER_REPO}-linux-arm64:${DOCKER_TAG}" --os linux --arch arm64 --variant v8
-docker manifest annotate "${DOCKER_REPO}:${DOCKER_TAG}" "${DOCKER_REPO}-linux-amd64:${DOCKER_TAG}" --os linux --arch amd64
-docker manifest push "${DOCKER_REPO}:${DOCKER_TAG}"
+docker buildx build \
+  --push \
+  --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
+  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+  --build-arg VERSION=$(cat VERSION) \
+  --build-arg VCS_REF=$(git rev-parse --short HEAD) \
+  --tag "${DOCKER_REPO}:latest" \
+  --tag "${IMAGE_NAME}" .
