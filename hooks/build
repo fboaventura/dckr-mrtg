@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 # $IMAGE_NAME var is injected into the build so the tag is correct.
 echo "=-=-=-=-= Building Images =-=-=-=-="
 echo docker buildx build \
