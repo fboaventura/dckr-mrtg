@@ -124,6 +124,10 @@ services:
 Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8880`
 
 ## ChangeLog
+### v2.5.1 - 2023.01.15
+- Fixed the auto-build to publish multi-arch versions and documentation
+- Added volume information to README.md
+
 ### v2.5.0 - 2023.01.15
 - Added the ability to set `USERID` and `GROUPID` for volume mapping scenarios (@TweakM)
 - Added the option to not regenerate the index.html file, applicable when custom/manual changes to this file have been made  (@TweakM)
