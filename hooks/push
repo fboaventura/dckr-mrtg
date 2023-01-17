@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
 docker buildx build \
   --push \
