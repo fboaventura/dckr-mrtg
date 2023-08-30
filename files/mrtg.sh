@@ -11,6 +11,12 @@ groupmod -g ${GROUPID} lighttpd
 [[ ! -d "${MRTGDIR}" ]] && mkdir -p ${MRTGDIR}
 [[ ! -d "${WEBDIR}" ]] && mkdir -p ${WEBDIR}
 
+if [ ! -z ${PATHPREFIX} ]; then
+    echo "IconDir: ${PATHPREFIX}" > ${MRTGDIR}/conf.d/001-IconDir.cfg
+else
+    echo "IconDir: /" > ${MRTGDIR}/conf.d/001-IconDir.cfg
+fi
+
 if [ -n "${HOSTS}" ]; then
     hosts=$(echo ${HOSTS} | tr '[,;]' ' ')
     for asset in ${hosts}; do
@@ -62,7 +68,7 @@ if [ $REGENERATEHTML == "yes" ]; then
   if [ -e "${WEBDIR}/index.html" ]; then
      mv -f "${WEBDIR}/index.html" "${WEBDIR}/index.old"
   fi
-  /usr/bin/indexmaker --columns=1 ${MRTGCFG} -rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --icondir=/ --prefix=${PATHPREFIX}/ $INDEXMAKEROPTIONS > ${WEBDIR}/index.html
+  /usr/bin/indexmaker --columns=1 ${MRTGCFG} --rrdviewer=${PATHPREFIX}/cgi-bin/14all.cgi --prefix=${PATHPREFIX}/ $INDEXMAKEROPTIONS > ${WEBDIR}/index.html
 fi
 
 
