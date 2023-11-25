@@ -21,6 +21,8 @@ RUN apk add --update --no-cache \
       rrdtool-cgi=~1.8.0-r2 \
       shadow=~4.13-r4 \
       tzdata=~2023c-r1 \
+    && apk upgrade --no-cache \
+    && rm -rf /var/cache/apk/* \
     && mkdir -p /etc/mrtg/conf.d \
     && mkdir -p /mrtg/cgi-bin /mrtg/html /mrtg/fonts
 
