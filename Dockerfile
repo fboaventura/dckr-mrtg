@@ -8,16 +8,27 @@ ENV GROUPID "101"
 ENV REGENERATEHTML "yes"
 ENV INDEXMAKEROPTIONS ""
 
-RUN apk add --update --no-cache tzdata net-snmp-tools dcron lighttpd bash \
-        mrtg rrdtool rrdtool-cgi perl-rrd perl-cgi font-space-mono-nerd shadow \
+RUN apk add --update --no-cache \
+      bash=~5.2.15-r5 \
+      dcron=~4.5-r9 \
+      font-space-mono-nerd=~2.3.3-r0 \
+      lighttpd=~1.4.73-r0 \
+      mrtg=~2.17.10-r1 \
+      net-snmp-tools=~5.9.3-r3 \
+      perl-cgi=~4.57-r0 \
+      perl-rrd=~1.8.0-r2 \
+      rrdtool=~1.8.0-r2 \
+      rrdtool-cgi=~1.8.0-r2 \
+      shadow=~4.13-r4 \
+      tzdata=~2023c-r1 \
     && mkdir -p /etc/mrtg/conf.d \
     && mkdir -p /mrtg/cgi-bin /mrtg/html /mrtg/fonts
 
-ADD files/mrtg.sh /usr/sbin/mrtg.sh
-ADD files/mrtg.cron /etc/crontabs/root
-ADD files/14all.cgi /mrtg/cgi-bin/14all.cgi
-ADD files/lighttpd.conf /etc/lighttpd/lighttpd.conf
-ADD files/mrtg.cfg /etc/mrtg/mrtg.cfg
+COPY files/mrtg.sh /usr/sbin/mrtg.sh
+COPY files/mrtg.cron /etc/crontabs/root
+COPY files/14all.cgi /mrtg/cgi-bin/14all.cgi
+COPY files/lighttpd.conf /etc/lighttpd/lighttpd.conf
+COPY files/mrtg.cfg /etc/mrtg/mrtg.cfg
 
 CMD ["/usr/sbin/mrtg.sh"]
 
