@@ -29,6 +29,8 @@ COPY files/mrtg.cron /etc/crontabs/root
 COPY files/14all.cgi /mrtg/cgi-bin/14all.cgi
 COPY files/lighttpd.conf /etc/lighttpd/lighttpd.conf
 COPY files/mrtg.cfg /etc/mrtg/mrtg.cfg
+COPY files/opensans.ttf /mrtg/fonts/opensans.ttf
+COPY files/icons /mrtg/icons
 
 CMD ["/usr/sbin/mrtg.sh"]
 

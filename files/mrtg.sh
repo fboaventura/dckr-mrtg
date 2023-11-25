@@ -10,11 +10,12 @@ groupmod -g ${GROUPID} lighttpd
 
 [[ ! -d "${MRTGDIR}" ]] && mkdir -p ${MRTGDIR}
 [[ ! -d "${WEBDIR}" ]] && mkdir -p ${WEBDIR}
+[[ ! -d "${WEBDIR}/icons" ]] && cp -R /mrtg/icons ${WEBDIR}/
 
 if [ ! -z ${PATHPREFIX} ]; then
     echo "IconDir: ${PATHPREFIX}" > ${MRTGDIR}/conf.d/001-IconDir.cfg
 else
-    echo "IconDir: /" > ${MRTGDIR}/conf.d/001-IconDir.cfg
+    echo "IconDir: /icons" > ${MRTGDIR}/conf.d/001-IconDir.cfg
 fi
 
 if [ -n "${HOSTS}" ]; then
@@ -55,6 +56,11 @@ else
             --snmp-options=:${PORT}::::${VERSION} \
             --output=${MRTGDIR}/conf.d/${NAME}.cfg "${COMMUNITY}@${HOST}"
 fi
+
+# Force font cache clean-up to avoid fontconfig errors
+chmod 777 /var/cache/fontconfig
+rm -rf /var/cache/fontconfig/*
+fc-cache -f
 
 env LANG=C /usr/bin/mrtg ${MRTGCFG}
 sleep 2

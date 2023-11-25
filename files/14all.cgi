@@ -65,7 +65,7 @@ $cfgfile = 'mrtg.cfg';
 # if you want to store your config files in a different place than your cgis:
 $cfgfiledir = '/etc/mrtg';
 
-# $ENV{RRD_DEFAULT_FONT} = '/mrtg/fonts/opensans.ttf';
+$ENV{RRD_DEFAULT_FONT} = '/mrtg/fonts/opensans.ttf';
 
 ### customize the html pages
 @author = ( -author => 'bawidama@users.sourceforge.net');
