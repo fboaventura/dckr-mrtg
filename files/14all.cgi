@@ -4,23 +4,21 @@
 #
 # create html pages and graphics with rrdtool for mrtg + rrdtool
 #
-# (c) 1999-2002 bawidama@users.sourceforge.net
-#
-# use freely, but: NO WARRANTY - USE AT YOUR OWN RISK!
-# license: GPL
+# (c) 1999,2000 bawidama@users.sourceforge.net
+# (c) 2008      tobi@oetiker.ch (HW extension)
+# (c) 2009      gvolk@gvolk.com (CSV export)
 
-# if MRTG_lib.pm (from mrtg) is not in the module search path (@INC)
-# uncomment the following line and change the path appropriatly:
-use lib qw(/usr/lib/mrtg2);
+# use freely, but: NO WARRANTY - USE AT YOUR OWN RISK!
 
 # if RRDs (rrdtool perl module) is not in the module search path (@INC)
-# uncomment the following line and change the path appropriatly
-# or use a LibAdd: setting in the config file
-#use lib qw(/usr/local/rrdtool-1.0.38/lib/perl);
+# uncomment the following line and change the path appropriatly:
+#use lib qw(/usr/local/rrdtool-1.0.33/lib/perl/ /usr/local/mrtg-2/lib/mrtg2/);
+#use lib qw(/opt/rrdtool/lib64);
 
 # RCS History - removed as it's available on the web
+use lib qw(/usr/lib/mrtg2);
 
-my $rcsid = '$Id: 14all.cgi,v 2.25 2003/01/05 18:39:51 bawidama Exp $';
+my $rcsid = '$Id: 14all.cgi,v 2.17 2002/02/07 21:37:08 rainer Exp $';
 my $subversion = (split(/ /,$rcsid))[2];
 $subversion =~ m/^\d+\.(\d+)$/;
 my $version = "14all.cgi 1.1p$1";
@@ -28,16 +26,14 @@ my $version = "14all.cgi 1.1p$1";
 # my $DEBUG = 0; has gone - use config "14all*GraphErrorsToBrowser: 1"
 
 use strict;
+use warnings;
+
 use CGI;
 BEGIN { eval { require CGI::Carp; import CGI::Carp qw/fatalsToBrowser/ }
 	if $^O !~ m/Win/i };
-use MRTG_lib "2.090003";
-
-sub main();
-sub set_graph_params($$$$);
-sub show_graph($$$);
-sub show_log($$$);
-sub show_dir($$$);
+use RRDs;
+# use MRTG_lib "/usr/share/perl5/MRTG_lib.pm";
+use MRTG_lib;
 
 sub print_error($@);
 sub intmax(@);
@@ -49,23 +45,24 @@ sub errorpng();
 sub gettextpic($);
 sub log_rrdtool_call($$@);
 
-# global, static vars
-my ($cfgfile, $cfgfiledir);
-my (@author, @style);
+my ($q, $cfgfile, $cfgfiledir);
+my ($cgidir, @author, @style);
 
 ### where the mrtg.cfg file is
 # anywhere in the filespace
-#$cfgfile = '/home/mrtg/mrtg.cfg';
+#$cfgfile = '/home/mrtg/bin/mrtg.cfg';
 # relative to the script
 #$cfgfile = 'mrtg.cfg';
 # use this so 14all.cgi gets the cfgfile name from the script name
 # (14all.cgi -> 14all.cfg)
-$cfgfile = 'mrtg.cfg';
+$cfgfile = '/etc/mrtg/mrtg.cfg';
 
 # if you want to store your config files in a different place than your cgis:
 $cfgfiledir = '/etc/mrtg';
 
 $ENV{RRD_DEFAULT_FONT} = '/mrtg/fonts/opensans.ttf';
+# $ENV{"TZ"} = "CST6CDT";
+
 
 ### customize the html pages
 @author = ( -author => 'bawidama@users.sourceforge.net');
@@ -73,9 +70,15 @@ $ENV{RRD_DEFAULT_FONT} = '/mrtg/fonts/opensans.ttf';
 #@style = ( -style => { -src => 'general.css' });
 ###
 
-# static data
-my @headeropts = (@author, @style);
+if (!$cfgfile && $#ARGV == 0) {
+	$cfgfile = shift @ARGV;
+}
 
+# initialize CGI
+$q = new CGI;
+
+# change for mrtg-2.9.*
+my (@sorted, %config, %targets);
 my %myrules = (
 	'14all*errorpic' =>
 		[sub{$_[0] && (-r $_[0] )}, sub{"14all*ErrorPic '$_[0]' not found/readable"}],
@@ -85,7 +88,7 @@ my %myrules = (
 	'14all*rrdtoollog' =>
 		[sub{$_[0] && (!-d $_[0] )}, sub{"14all*RRDToolLog must be a writable file"}],
 	'14all*background' =>
-		[sub{$_[0] =~ /^#[0-9a-f]{6}$/i}, sub{"14all*background colour not in form '#xxxxxx', x in [a-f0-9]"}],
+		[sub{$_ =~ /^#[0-9a-f]{6}$/i}, sub{"14all*background colour not in form '#xxxxxx', x in [a-f0-9]"}],
 	'14all*logarithmic[]' => [sub{1}, sub{"Internal Error"}],
 	'14all*graphtotal[]' => [sub{1}, sub{"Internal Error"}],
 	'14all*dontshowindexgraph[]' => [sub{1}, sub{"Internal Error"}],
@@ -93,7 +96,6 @@ my %myrules = (
 	'14all*indexgraphsize[]' =>
 		[sub{$_[0] =~ m/^\d+[,\s]+\d+$/o}, sub{"14all*indexgraphsize: need two numbers"}],
 	'14all*maxrules[]' => [sub{1}, sub{"Internal Error"}],
-	'14all*stackgraph[]' => [sub{1}, sub{"Internal Error"}],
 );
 
 my %graphparams = (
@@ -104,29 +106,65 @@ my %graphparams = (
 	'daily.s' => ['-1250m', 'now',  300],
 );
 
+# look for the config file
+my $meurl = $q->url(-relative => 1);
+ensureSL(\$cfgfiledir);
+if (defined $q->param('cfg')) {
+	$cfgfile = $q->param('cfg');
+	# security fix: don't allow ./ in the config file name
+	print_error($q, "Illegal characters in cfg param: ./")
+		if $cfgfile =~ m'(^/)|(\./)';
+	$cfgfile = $cfgfiledir.$cfgfile unless -r $cfgfile;
+	print_error($q, "Cannot find the given config file: \<tt>$cfgfile\</tt>")
+		unless -r $cfgfile;
+} elsif (!defined $cfgfile) {
+	$cfgfile = $meurl;
+	$cfgfile =~ s|.*\Q$MRTG_lib::SL\E||;
+	$cfgfile =~ s/\.(cgi|pl|perl)$/.cfg/;
+	#$meurl =~ m{\Q$MRTG_lib::SL\E([^\Q$MRTG_lib::SL\E]*)\.(cgi|pl)$};
+	#$cfgfile = $1 . '.cfg';
+	$cfgfile = $cfgfiledir.$cfgfile unless -r $cfgfile;
+}
+
+# read the config file
+
+readcfg($cfgfile, \@sorted, \%config, \%targets, "14all", \%myrules);
+my @processed_targets;
+cfgcheck(\@sorted, \%config, \%targets, \@processed_targets);
+
+# set some defaults
+if (exists $config{refresh} && yesorno($config{refresh})
+		&& $config{refresh} !~ m/^\d*[1-9]\d*$/o) {
+	$config{refresh} = $config{interval} * 60;
+}
+
+my @headeropts = (@author, @style);
+
 # the footer we print on every page
-my $footer_template = <<"EOT";
+$config{icondir} ||= ''; # lets have a default for this
+my $footer = <<"EOT" . $q->end_html;
+<br/>
+<br/>
 <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
   <TR>
     <TD WIDTH=63><A ALT="MRTG"
-    HREF="http://ee-staff.ethz.ch/~oetiker/webtools/mrtg/mrtg.html"><IMG
-    BORDER=0 SRC="##ICONDIR##/mrtg-l.png"></A></TD>
+    HREF="http://oss.oetiker.ch/mrtg"><IMG
+    BORDER=0 SRC="$config{IconDir}mrtg-l.png"></A></TD>
     <TD WIDTH=25><A ALT=""
-    HREF="http://ee-staff.ethz.ch/~oetiker/webtools/mrtg/mrtg.html"><IMG
-    BORDER=0 SRC="##ICONDIR##/mrtg-m.png"></A></TD>
+    HREF="http://oss.oetiker.ch/mrtg"><IMG
+    BORDER=0 SRC="$config{IconDir}mrtg-m.png"></A></TD>
     <TD WIDTH=388><A ALT=""
-    HREF="http://ee-staff.ethz.ch/~oetiker/webtools/mrtg/mrtg.html"><IMG
-    BORDER=0 SRC="##ICONDIR##/mrtg-r.png"></A></TD>
+    HREF="http://oss.oetiker.ch/mrtg"><IMG
+    BORDER=0 SRC="$config{IconDir}mrtg-r.png"></A></TD>
   </TR>
 </TABLE>
 <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
   <TR VALIGN=top>
   <TD WIDTH=88 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>Version ${MRTG_lib::VERSION}</FONT></TD>
   <TD WIDTH=388 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>
-  <A HREF="http://ee-staff.ethz.ch/~oetiker/">Tobias Oetiker</A>
-  <A HREF="mailto:oetiker\@ee.ethz.ch">&lt;oetiker\@ee.ethz.ch&gt;</A> and
-  <A HREF="http://www.bungi.com">Dave&nbsp;Rand</A>&nbsp;
-  <A HREF="mailto:dlr\@bungi.com">&lt;dlr\@bungi.com&gt;</A>
+  <A HREF="http://tobi.oetiker.ch">Tobias Oetiker</A>
+  and
+  <A HREF="http://www.bungi.com">Dave&nbsp;Rand</A>
   <TR VALIGN=top>
   <TD WIDTH=88 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2><a
     href="http://my14all.sourceforge.net/">$version</a></FONT></TD>
@@ -138,286 +176,222 @@ my $footer_template = <<"EOT";
 </TABLE>
 EOT
 
-# global vars, persistent for speecyCGI/mod_perl
-%my14all::config_cache = ();
-$my14all::meurl = '';
-
-
-# run main
-main();
-exit(0);
-# end.
-
-sub main() {
-	if (!$cfgfile && $#ARGV == 0 && $ARGV[0] !~ m/=/ && !exists($ENV{QUERY_STRING})) {
-		$cfgfile = shift @ARGV;
+### the main switch
+# the modes:
+# if parameter "dir" is given show a list of the targets in this "directory"
+# elsif parameter "png" is given show a graphic for the target given w/ parameter "log"
+# elsif parameter "log" is given show the page for this target
+# elsif parameter "csv" is given send the data to the user as a CSV file transfer
+# else show a list of directories and of targets w/o directory
+# parameter "cfg" can hold the name of the config file to use
+if (defined $q->param('dir')) {
+	# show a list of targets in the given directory
+	my $dir = $q->param('dir');
+	my @httphead;
+	push @httphead, (-expires => '+' . int($config{interval}) . 'm');
+	if (yesorno($config{refresh})) {
+		push @httphead, (-refresh => $config{refresh});
 	}
-
-	my %setup;
-	# initialize CGI
-	my $q = new CGI;
-	$setup{q} = $q;
-
-	# change for mrtg-2.9.*
-	# look for the config file
-	$my14all::meurl = $q->url(-relative => 1);
-	ensureSL(\$cfgfiledir);
-	my $l_cfgfile; # don't change what is set above in the CGI
-	if (defined $q->param('cfg')) {
-		$l_cfgfile = $q->param('cfg');
-		# security fix: don't allow ./ in the config file name
-		print_error($q, "Illegal characters in cfg param: ./")
-			if $l_cfgfile =~ m'(^/)|(\./)';
-		$l_cfgfile = $cfgfiledir.$l_cfgfile unless -r $l_cfgfile;
-		print_error($q, "Cannot find the given config file: \<tt>$l_cfgfile\</tt>")
-			unless -r $l_cfgfile;
-	} elsif (!$cfgfile) {
-		$l_cfgfile = $my14all::meurl;
-		$l_cfgfile =~ s|.*\Q$MRTG_lib::SL\E||;
-		$l_cfgfile =~ s/\.(cgi|pl|perl)$/.cfg/;
-		#$my14all::meurl =~ m{\Q$MRTG_lib::SL\E([^\Q$MRTG_lib::SL\E]*)\.(cgi|pl)$};
-		#$l_cfgfile = $1 . '.cfg';
-		$l_cfgfile = $cfgfiledir.$l_cfgfile unless -r $l_cfgfile;
-	} else {
-		$l_cfgfile = $cfgfile;
-	}
-
-	# now we have the name of the config file.
-	# we might already have it with speedyCGI or mod_perl
-	my $read_file = 1;
-	my @cfg_stat = stat($l_cfgfile);
-	if (exists $my14all::config_cache{config}{$l_cfgfile}{mtime} &&
-	    $cfg_stat[9] <= $my14all::config_cache{config}{$l_cfgfile}{mtime})
-	{
-		$read_file = 0;
-	}
-
-	# read the config file
-	if ($read_file) {
-		# wipe old config
-		delete $my14all::config_cache{config}{$l_cfgfile}
-			if exists $my14all::config_cache{config}{$l_cfgfile};
-		my (@sorted, %config, %targets);
-		readcfg($l_cfgfile, \@sorted, \%config, \%targets, "14all", \%myrules);
-		my @processed_targets;
-		cfgcheck(\@sorted, \%config, \%targets, \@processed_targets);
-		# set default refresh
-		if (exists $config{refresh} && yesorno($config{refresh})
-				&& $config{refresh} !~ m/^\d*[1-9]\d*$/o) {
-			$config{refresh} = $config{interval} * 60;
+	push @headeropts, (-bgcolor => ($config{'14all*background'} || '#ffffff'));
+	my @htmlhead = (-title => "MRTG/RRD - Group $dir", @headeropts);
+	#if ($targets{addhead}{_}) {
+	#	push @htmlhead, (-head => $targets{addhead}{_});
+	#}
+	print $q->header(@httphead), $q->start_html(@htmlhead);
+	print $q->h1("Available Targets"),"\n\<table width=100\%>\n";
+	my $cfgstr = (defined $q->param('cfg') ? "&cfg=".$q->param('cfg') : '');
+	my $column = 0;
+	my $pngdir = getdirwriteable($config{imagedir},$dir);
+	my $confcolumns = $config{'14all*columns'} || 2;
+	foreach my $tar (@sorted) {
+		my $small = 0;
+		my $descr = 0;
+		unless (yesorno($targets{'14all*dontshowindexgraph'}{$tar})) {
+			$small = $targets{'14all*indexgraph'}{$tar};
+			$small = 'daily.s' unless $small;
 		}
-		# store config in "cache"
-		$my14all::config_cache{config}{$l_cfgfile}{sorted} = \@sorted;
-		$my14all::config_cache{config}{$l_cfgfile}{config} = \%config;
-		$my14all::config_cache{config}{$l_cfgfile}{targets} = \%targets;
-		$my14all::config_cache{config}{$l_cfgfile}{processed_targets} = \@processed_targets;
-		$my14all::config_cache{config}{$l_cfgfile}{mtime} = $cfg_stat[9];
+		next if $tar =~ m/^[\$\^\_]$/; # _ is not a real target
+		next if $targets{directory}{$tar} ne $dir;
+		$descr = $targets{pagetop}{$tar}; ###GVOLK
+	#system("/bin/echo", $descr);
+		#print "system "/bin/echo $descr"";
 
-		# add LibAdd from config for RRDs.pm
-		if ($config{libadd}) {
-			unshift @INC, $config{libadd};
+#system "/bin/echo \" $pager_name \n\r $pretty_number\" | /bin/mail $pager_email 2>&1";
+
+		print '<tr>' if $column == 0;
+		print '<td>',
+			$q->br($q->a({href => "$meurl?log=$tar$cfgstr"}, $targets{title}{$tar}));   ###GVOLK
+			#$q->p($q->a({href => "$meurl?log=$tar$cfgstr"}, $targets{title}{$tar}));   ###GVOLK
+		#print '<p>'; ###GVOLK - 2010-12-29
+		print $q->a({href => "$meurl?log=$tar$cfgstr"},
+			$q->img({src => "$meurl?log=$tar&png=$small&small=1$cfgstr",
+				alt => "index-graph",
+				getpngsize("$pngdir$tar-$small-i.png")})
+			) if $small;
+		print "\</td>\n";
+		$column++;
+		if ($column >= $confcolumns) {
+			$column = 0;
+			print '</tr>';
+		} 
+		#print '<p>';
+	}
+	if ($column != 0 and $column < $confcolumns) {
+		print '<td>&nbsp;</td>' x ($confcolumns - $column),"\</tr>\n";
+	}
+	print '</table>', $footer;
+} elsif (defined $q->param('png')) {
+	# send a graphic, create it if necessary
+	my $errstr = '';
+	if (!defined $q->param('log')) {
+		$errstr="CGI call error: missing param 'log'";
+		goto ERROR;
+	}
+	my $png = $q->param('png');
+	my $log = $q->param('log');
+	unless (exists $targets{target}{$log}) {
+		$errstr="target '$log' unknown";
+		goto ERROR;
+	}
+	# fix a problem with indexmaker
+	if (defined $q->param('small')) {
+		my %imaker = qw/day.s daily.s week.s weekly month.s monthly year.s yearly/;
+		if (exists $imaker{$png}) {
+			$png = $imaker{$png};
 		}
-		# load the rrdtool perl extension
-		eval "use RRDs 1.00038";
-	}
-	my $cfg = $my14all::config_cache{config}{$l_cfgfile};
-
-	my $footer = $footer_template;
-	# make sure icondir is set (should be done by mrtg)
-	$cfg->{config}{icondir} ||= $cfg->{config}{workdir};
-	# put icondir into footer
-	$footer =~ s/##ICONDIR##/$cfg->{config}{icondir}/g;
-
-	my $log = '_';
-	if (defined $q->param('log')) {
-		$log = $q->param('log');
-	}
-	# set timezone for rrdtool
-	if ($cfg->{targets}{timezone}{$log}) {
-		$ENV{"TZ"} = $cfg->{targets}{timezone}{$log};
-	}
-
-	### the main switch
-	# the modes:
-	# if parameter "dir" is given show a list of the targets in this "directory"
-	# elsif parameter "png" is given show a graphic for the target given w/ parameter "log"
-	# elsif parameter "log" is given show the page for this target
-	# else show a list of directories and of targets w/o directory
-	# parameter "cfg" can hold the name of the config file to use
-	if (defined $q->param('dir')) {
-		show_dir($cfg, $q, $q->param('dir'));
-	} elsif (defined $q->param('png')) {
-		show_graph($cfg, $q, $q->param('png'));
-		exit(0); # don't show (html) footer
-	} elsif (defined $q->param('log')) {
-		show_log($cfg, $q, $q->param('log'));
-	} else {
-		show_dir($cfg, $q, '');
-	}
-	if (!$cfg->{targets}{options}{nobanner}{$log}) {
-		print $footer;
-	}
-	print $q->end_html();
-	exit(0);
-}
-
-sub set_graph_params($$$$) {
-	# calculate graph params and store in config
-	my ($cfg, $log, $png, $small) = @_;
-	unless (exists $cfg->{targets}{target}{$log}) {
-		return "target '$log' unknown";
 	}
 	my ($start, $end, $maxage);
-	my $graphparams = $cfg->{targets}{"graph*$png"}{$log};
+	my $graphparams = $targets{"graph*$png"}{$log};
 	if ($graphparams) {
 		($start, $end, $maxage) = split(/[,\s]+/, $graphparams, 3);
 	}
 	unless ($start && $end && $maxage) {
 		unless (exists $graphparams{$png}) {
-			return "CGI call error: graph '$png' unknown";
+			$errstr="CGI call error: graph '$png' unknown";
+			goto ERROR;
 		}
 		($start, $end, $maxage) = @{$graphparams{$png}};
 	}
 	my ($xs, $ys);
-	if ($small) {
+	if (defined $q->param('small')) {
 		($xs, $ys) = (250, 100);
-		($xs, $ys) = ($cfg->{targets}{'14all*indexgraphsize'}{$log} =~ m/(\d+)[,\s]+(\d+)/)
-			if $cfg->{targets}{'14all*indexgraphsize'}{$log};
+		($xs, $ys) = ($targets{'14all*indexgraphsize'}{$log} =~ m/\d+[,\s]+\d+/)
+			if $targets{'14all*indexgraphsize'}{$log};
 	} else {
-		($xs, $ys) = ($cfg->{targets}{xsize}{$log} + 23, $cfg->{targets}{ysize}{$log});
+		($xs, $ys) = ($targets{xsize}{$log}, $targets{ysize}{$log});
 	}
 	unless ($xs && $ys) {
-		return "cannot get image sizes for graph $png / target $log";
+		$errstr="cannot get image sizes for graph $png / target $log";
+		goto ERROR;
 	}
-	my $rrd = $cfg->{config}{logdir}.$cfg->{targets}{directory}{$log} . $log . '.rrd';
+	my $rrd = $config{logdir}.$targets{directory}{$log} . $log . '.rrd';
 	# escape ':' and '\' with \ in $rrd
 	# (rrdtool replaces '\:' by ':' and '\\' by '\')
 	$rrd =~ s/([:\\])/\\$1/g;
-	my $pngdir = getdirwriteable($cfg->{config}{imagedir}, $cfg->{targets}{directory}{$log});
-	$png .= '-i' if $small;
+	my $pngdir = getdirwriteable($config{imagedir}, $targets{directory}{$log});
+	$png .= '-i' if defined $q->param('small');
 	my $pngfile = "${pngdir}${log}-${png}.png";
-
+	
 	# build the rrd command line: set the starttime and the graphics format (PNG)
 	my @args = ($pngfile, '-s', $start, '-e', $end, '-a', 'PNG');
 	# if it's not a small picture set the legends
 	my ($l1,$l2,$l3,$l4,$li,$lo) = ('','','','','','');
 	my ($ri, $ro) = ('','');
 
-	# set the size of the graph
 	push @args, '-w', $xs, '-h', $ys;
-	# set scale factor and legend defaults
-	my $per_unit = 'Second';
-	my $persec = 'Bytes';
-	my $factor = 1; # should we scale the values?
-	if ($cfg->{targets}{options}{perminute}{$log}) {
-		$factor = 60; # perminute -> 60x
-		$per_unit = 'Minute';
-	} elsif ($cfg->{targets}{options}{perhour}{$log}) {
-		$factor = 3600; # perhour -> 3600x
-		$per_unit = 'Hour';
-	}
-	if ($cfg->{targets}{options}{bits}{$log}) {
-		$factor *= 8; # bits instead of bytes -> 8x
-		$persec = 'Bits';
-	}
-	# let the user give an arbitrary factor:
-	if ($cfg->{targets}{factor}{$log} and
-		$cfg->{targets}{factor}{$log} =~ m/^[-+]?\d+(.\d+)?([eE][+-]?\d+)?$/)
-	{
-		$factor *= 0+$cfg->{targets}{factor}{$log};
-	}
-
-	# check if only one value should be graphed (set vars for fast access)
-	my $noi = $cfg->{targets}{options}{noi}{$log};
-	my $noo = $cfg->{targets}{options}{noo}{$log};
-
-	# prepare the legends
-	if (!$small && !$cfg->{targets}{options}{nolegend}{$log}) {
+	if (!defined $q->param('small')) {
 		foreach (qw/legend1 legend2 legend3 legend4 legendi legendo legendy shortlegend/) {
-			if ($cfg->{targets}{$_}{$log}) {
-				$cfg->{targets}{$_}{$log} =~ s'&nbsp;' 'go; #'
-				$cfg->{targets}{$_}{$log} =~ s/%/%%/go;
+			if ($targets{$_}{$log}) {
+				$targets{$_}{$log} =~ s'&nbsp;' 'go; #'
+				$targets{$_}{$log} =~ s/%/%%/go;
 			}
 		}
-		if ($cfg->{targets}{ylegend}{$log}) {
-			push @args, '-v', $cfg->{targets}{ylegend}{$log};
-		} else {
-			push @args, '-v', "$persec per $per_unit";
-		}
+		my $persec = $targets{options}{bits}{$log} ? 'Bits' : 'Bytes';
+		if ($targets{ylegend}{$log}) {
+			push @args, '-v', $targets{ylegend}{$log}; }
 
-		if ($cfg->{targets}{legend1}{$log}) {
-			$l1 = ":".$cfg->{targets}{legend1}{$log}."\\l"; }
+		if ($targets{legend1}{$log}) {
+			$l1 = ":".$targets{legend1}{$log}."\\l"; }
 		else {
-			$l1 = ":Incoming Traffic in $persec per $per_unit\\l"; }
-		if ($cfg->{targets}{legend2}{$log}) {
-			$l2 = ":".$cfg->{targets}{legend2}{$log}."\\l"; }
+			$l1 = ":Incoming Traffic in $persec per Second\\l"; }
+		if ($targets{legend2}{$log}) {
+			$l2 = ":".$targets{legend2}{$log}."\\l"; }
 		else {
-			$l2 = ":Outgoing Traffic in $persec per $per_unit\\l"; }
-		if ($cfg->{targets}{legend3}{$log}) {
-			$l3 = ":".$cfg->{targets}{legend3}{$log}."\\l"; }
+			$l2 = ":Outgoing Traffic in $persec per Second\\l"; }
+		if ($targets{legend3}{$log}) {
+			$l3 = ":".$targets{legend3}{$log}."\\l"; }
 		else {
 			$l3 = ":Maximal 5 Minute Incoming Traffic\\l"; }
-		if ($cfg->{targets}{legend4}{$log}) {
-			$l4 = ":".$cfg->{targets}{legend4}{$log}."\\l"; }
+		if ($targets{legend4}{$log}) {
+			$l4 = ":".$targets{legend4}{$log}."\\l"; }
 		else {
 			$l4 = ":Maximal 5 Minute Outgoing Traffic\\l"; }
 
-		if (exists $cfg->{targets}{legendi}{$log}) {
-			$li = $cfg->{targets}{legendi}{$log}; }
+		if (exists $targets{legendi}{$log}) {
+			$li = $targets{legendi}{$log}; }
 		else {	$li = "In: "; }
 		$li =~ s':'\\:'; # ' quote :
-		if (exists $cfg->{targets}{legendo}{$log}) {
-			$lo = $cfg->{targets}{legendo}{$log}; }
+		if (exists $targets{legendo}{$log}) {
+			$lo = $targets{legendo}{$log}; }
 		else {	$lo = "Out:"; }
 		$lo =~ s':'\\:'; # ' quote :
 
-		if ($cfg->{targets}{options}{integer}{$log}) {
-			$li .= ' %9.0lf' if $li;
-			$lo .= ' %9.0lf' if $lo;
+		if ($targets{options}{integer}{$log}) {
+			$li .= ' %9.0lf';
+			$lo .= ' %9.0lf';
 			$ri = '%3.0lf%%';
 			$ro = '%3.0lf%%';
 		} else {
-			$li .= ' %8.3lf' if $li;
-			$lo .= ' %8.3lf' if $lo;
+			$li .= ' %8.3lf';
+			$lo .= ' %8.3lf';
 			$ri = '%6.2lf%%';
 			$ro = '%6.2lf%%';
 		}
-		if (!exists($cfg->{targets}{kmg}{$log}) || $cfg->{targets}{kmg}{$log}) {
-			$li .= ' %s' if $li;
-			$lo .= ' %s' if $lo;
-			if ($cfg->{targets}{kilo}{$log}) {
-				push @args, '-b', $cfg->{targets}{kilo}{$log};
+		if (!defined($targets{kmg}{$log}) || $targets{kmg}{$log}) {
+			$li .= ' %s';
+			$lo .= ' %s';
+			if ($targets{kilo}{$log}) {
+				push @args, '-b', $targets{kilo}{$log};
 			}
-			if ($cfg->{targets}{shortlegend}{$log}) {
-				$li .= $cfg->{targets}{shortlegend}{$log} if $li;
-				$lo .= $cfg->{targets}{shortlegend}{$log} if $lo;
+			if ($targets{shortlegend}{$log}) {
+				$li .= $targets{shortlegend}{$log};
+				$lo .= $targets{shortlegend}{$log};
 			}
 		}
 	}
+	my $factor = 1; # should we scale the values?
+	if ($targets{options}{perminute}{$log}) {
+		$factor = 60; # perminute -> 60x
+	} elsif ($targets{options}{perhour}{$log}) {
+		$factor = 3600; # perhour -> 3600x
+	}
+	if ($targets{options}{bits}{$log}) {
+		$factor *= 8; # bits instead of bytes -> 8x
+	}
+	# let the user give an arbitrary factor:
+	if ($targets{factor}{$log} and
+		$targets{factor}{$log} =~ m/^[-+]?\d+(.\d+)?([eE][+-]?\d+)?$/)
+	{
+		$factor *= 0+$targets{factor}{$log};
+	}
 	my $pngchar = substr($png,0,1);
-	if ($pngchar and $cfg->{targets}{unscaled}{$log} and
-		   $cfg->{targets}{unscaled}{$log} =~ m/$pngchar/) {
-		my $max = intmax($cfg->{targets}{maxbytes}{$log},
-			$cfg->{targets}{maxbytes1}{$log},
-			$cfg->{targets}{maxbytes2}{$log},
-			$cfg->{targets}{absmax}{$log});
+	if ($pngchar and $targets{unscaled}{$log} and
+		   $targets{unscaled}{$log} =~ m/$pngchar/) {
+		my $max = intmax($targets{maxbytes}{$log},
+			$targets{maxbytes1}{$log},
+			$targets{maxbytes2}{$log},
+			$targets{absmax}{$log});
 		$max *= $factor;
 		push @args, '-l', 0, '-u', $max, '-r';
-	} elsif (yesorno($cfg->{targets}{'14all*logarithmic'}{$log})) {
+	} elsif (yesorno($targets{'14all*logarithmic'}{$log})) {
 		push @args, '-o';
 	}
-	push @args,'--alt-y-mrtg','--lazy','-c','MGRID#ee0000','-c','GRID#000000';
-	# contributed by Henry Chen: option to stack the two values
-	# set the mode of the second line from config
-	my $line2 = 'LINE1:';
-	if (yesorno($cfg->{targets}{'14all*stackgraph'}{$log})) {
-		$line2 = 'STACK:';
-	}
+	push @args,'--alt-y-grid','--lazy','-c','MGRID#ee0000','-c','GRID#000000';
 	# now build the graph calculation commands
 	# ds0/ds1 hold the normal data sources to graph/gprint
 	my ($ds0, $ds1) = ('in', 'out');
 	push @args, "DEF:$ds0=$rrd:ds0:AVERAGE", "DEF:$ds1=$rrd:ds1:AVERAGE";
-	if (defined $cfg->{targets}{options}{unknaszero}{$log}) {
+	if (defined $targets{options}{unknaszero}{$log}) {
 		push @args, "CDEF:uin=$ds0,UN,0,$ds0,IF",
 			"CDEF:uout=$ds1,UN,0,$ds1,IF";
 		($ds0, $ds1) = ('uin', 'uout');
@@ -427,8 +401,8 @@ sub set_graph_params($$$$) {
 		push @args, "CDEF:fin=$ds0,$factor,*","CDEF:fout=$ds1,$factor,*";
 		($ds0, $ds1) = ('fin', 'fout');
 	}
-	my $maximum0 = $cfg->{targets}{maxbytes1}{$log} || $cfg->{targets}{maxbytes}{$log};
-	my $maximum1 = $cfg->{targets}{maxbytes2}{$log} || $cfg->{targets}{maxbytes}{$log};
+	my $maximum0 = $targets{maxbytes1}{$log} || $targets{maxbytes}{$log};
+	my $maximum1 = $targets{maxbytes2}{$log} || $targets{maxbytes}{$log};
 	$maximum0 = 1 unless $maximum0;
 	$maximum1 = 1 unless $maximum1;
 	# ps0/ps1 hold the percentage data source for gprint
@@ -436,8 +410,8 @@ sub set_graph_params($$$$) {
 	push @args, "CDEF:pin=$ds0,$maximum0,/,100,*,$factor,/",
 		"CDEF:pout=$ds1,$maximum1,/,100,*,$factor,/";
 
-	if (yesorno($cfg->{targets}{'14all*graphtotal'}{$log})
-			&& $small) {
+	if (yesorno($targets{'14all*graphtotal'}{$log})
+			&& defined $q->param('small')) {
 		push @args, "CDEF:total=$ds0,$ds1,+", "LINE1:total#ffa050:Total AVG\\l";
 	}
 	# now for the peak graphs / maximum values
@@ -445,12 +419,12 @@ sub set_graph_params($$$$) {
 	my ($mx0, $mx1) = ($ds0, $ds1);
 	# px0/px1 hold the maximum pecentage data source for gprint
 	my ($px0, $px1) = ($ps0, $ps1);
-	if (!$small) {
+	if (!defined $q->param('small')) {
 		# the defs for the maximum values: for the legend ('MAX') and probabely
 		# for the 'withpeak' graphs
 		push @args, "DEF:min=$rrd:ds0:MAX", "DEF:mout=$rrd:ds1:MAX";
 		($mx0, $mx1) = ('min', 'mout');
-		if (defined $cfg->{targets}{options}{unknaszero}{$log}) {
+		if (defined $targets{options}{unknaszero}{$log}) {
 			push @args, "CDEF:umin=$mx0,UN,0,$mx0,IF",
 				"CDEF:umout=$mx1,UN,0,$mx1,IF";
 			($mx0, $mx1) = ('umin', 'umout');
@@ -461,104 +435,77 @@ sub set_graph_params($$$$) {
 			($mx0, $mx1) = ('fmin', 'fmout');
 		}
 		# draw peak lines if configured
-		if ($cfg->{targets}{withpeak}{$log} &&
-				substr($png,0,1) =~ /[$cfg->{targets}{withpeak}{$log} ]/) {
-			push @args, "AREA:".$mx0.$cfg->{targets}{rgb3}{$log}.$l3 unless $noi;
-			push @args, $line2.$mx1.$cfg->{targets}{rgb4}{$log}.$l4 unless $noo;
-			if (yesorno($cfg->{targets}{'14all*graphtotal'}{$log})) {
+		if ($targets{withpeak}{$log} &&
+				substr($png,0,1) =~ /[$targets{withpeak}{$log} ]/) {
+			push @args, (defined $targets{rrdhwrras}{$log} ? "LINE1" : "AREA" ).':'.$mx0.$targets{rgb3}{$log}.$l3,
+				"LINE1:".$mx1.$targets{rgb4}{$log}.$l4;
+			push @args, "CDEF:pmin=$mx0,$maximum0,/,100,*,$factor,/",
+				"CDEF:pmout=$mx1,$maximum1,/,100,*,$factor,/";
+			($px0, $px1) = ('pmin', 'pmout');
+			if (yesorno($targets{'14all*graphtotal'}{$log})) {
 				push @args, "CDEF:mtotal=$mx0,$mx1,+", "LINE1:mtotal#ff5050:Total MAX\\l";
 			}
 		}
-		push @args, "CDEF:pmin=$mx0,$maximum0,/,100,*,$factor,/",
-			"CDEF:pmout=$mx1,$maximum1,/,100,*,$factor,/";
-		($px0, $px1) = ('pmin', 'pmout');
 	}
 	# the commands to draw the values
 	my (@hr1, @hr2);
-	if (!$small && yesorno($cfg->{targets}{'14all*maxrules'}{$log})) {
+	if (!defined $q->param('small') && yesorno($targets{'14all*maxrules'}{$log})) {
 		chop $l1; chop $l1; chop $l2; chop $l2;
 		@hr1 = (sprintf("HRULE:%d#ff4400: MaxBytes1\\l",$maximum0*$factor));
 		@hr2 = (sprintf("HRULE:%d#aa0000: MaxBytes2\\l",$maximum1*$factor));
 	}
-	push @args, "AREA:".$ds0.$cfg->{targets}{rgb1}{$log}.$l1, @hr1 unless $noi;
-	push @args, $line2.$ds1.$cfg->{targets}{rgb2}{$log}.$l2, @hr2 unless $noo;
-	if (!$small && !$cfg->{targets}{options}{nolegend}{$log}) {
+        
+	push @args, (defined $targets{rrdhwrras}{$log} ? "LINE1" : "AREA" ).':'.$ds0.$targets{rgb1}{$log}.$l1, @hr1,
+  		    "LINE1:".$ds1.$targets{rgb2}{$log}.$l2, @hr2;
+	if (!defined $q->param('small')) {
+                # draw confidence band if rrdhwrras are enabled
+                if (defined $targets{rrdhwrras}{$log}){
+                        push @args, 
+                          "DEF:pred0=${rrd}:ds0:HWPREDICT",
+                          "DEF:pred1=${rrd}:ds1:HWPREDICT",
+                          "DEF:dev0=${rrd}:ds0:DEVPREDICT",
+                          "DEF:dev1=${rrd}:ds1:DEVPREDICT",
+                          "DEF:fail0=${rrd}:ds0:FAILURES",
+                          "DEF:fail1=${rrd}:ds1:FAILURES",
+			  "TICK:fail0$targets{rgb1}{$log}:1.0",
+			  "TICK:fail1$targets{rgb2}{$log}:1.0",
+                          "CDEF:hwwidth0=dev0,4,*,${factor},*",
+                          "CDEF:hwwidth1=dev1,4,*,${factor},*",
+                          "CDEF:hwlower0=pred0,dev0,2,*,-,${factor},*",
+                          "CDEF:hwlower1=pred1,dev1,2,*,-,${factor},*",
+                          "LINE1:hwlower0$targets{rgb1}{$log}40","AREA:hwwidth0$targets{rgb1}{$log}60::STACK","LINE1:0$targets{rgb1}{$log}40::STACK",
+                          "LINE1:hwlower1$targets{rgb2}{$log}40","AREA:hwwidth1$targets{rgb2}{$log}40::STACK","LINE1:0$targets{rgb2}{$log}90::STACK"
+                }
 		# print the legends
-		# order matters so noi/noo makes this ugly
-		if ($cfg->{targets}{options}{nopercent}{$log}) {
-			push @args, "GPRINT:$mx0:MAX:Maximal $li" if $li && !$noi;
-			push @args, "GPRINT:$mx1:MAX:Maximal $lo\\l" if $lo && !$noo;
-			push @args, "GPRINT:$ds0:AVERAGE:Average $li" if $li && !$noi;
-			push @args, "GPRINT:$ds1:AVERAGE:Average $lo\\l" if $lo && !$noo;
-			push @args, "GPRINT:$ds0:LAST:Current $li" if $li && !$noi;
-			push @args, "GPRINT:$ds1:LAST:Current $lo\\l" if $lo && !$noo;
+		if ($targets{options}{nopercent}{$log}) {
+			push @args,
+				"GPRINT:$mx0:MAX:Max $li",
+				"GPRINT:$mx1:MAX:Max $lo\\l",
+				"GPRINT:$ds0:AVERAGE:Avg $li",
+				"GPRINT:$ds1:AVERAGE:Avg $lo\\l",
+				"GPRINT:$ds0:LAST:Cur $li",
+				"GPRINT:$ds1:LAST:Cur $lo\\l";
 		} else {
 			push @args,
-				"GPRINT:$mx0:MAX:Maximal $li",
-				"GPRINT:$px0:MAX:($ri)" if $li && !$noi;
-			push @args,
-				"GPRINT:$mx1:MAX:Maximal $lo",
-				"GPRINT:$px1:MAX:($ro)\\l" if $lo && !$noo;
-			push @args,
-				"GPRINT:$ds0:AVERAGE:Average $li",
-				"GPRINT:$ps0:AVERAGE:($ri)" if $li && !$noi;
-			push @args,
-				"GPRINT:$ds1:AVERAGE:Average $lo",
-				"GPRINT:$ps1:AVERAGE:($ro)\\l" if $lo && !$noo;
-			push @args,
-				"GPRINT:$ds0:LAST:Current $li",
-				"GPRINT:$ps0:LAST:($ri)" if $li && !$noi;
-			push @args,
-				"GPRINT:$ds1:LAST:Current $lo",
-				"GPRINT:$ps1:LAST:($ro)\\l" if $lo && !$noo;
+				"GPRINT:$mx0:MAX:Max $li",
+				"GPRINT:$px0:MAX:($ri)",
+				"GPRINT:$mx1:MAX:Max $lo",
+				"GPRINT:$px1:MAX:($ro)\\l",
+				"GPRINT:$ds0:AVERAGE:Avg $li",
+				"GPRINT:$ps0:AVERAGE:($ri)",
+				"GPRINT:$ds1:AVERAGE:Avg $lo",
+				"GPRINT:$ps1:AVERAGE:($ro)\\l",
+				"GPRINT:$ds0:LAST:Cur $li",
+				"GPRINT:$ps0:LAST:($ri)",
+				"GPRINT:$ds1:LAST:Cur $lo",
+				"GPRINT:$ps1:LAST:($ro)\\l";
 		}
 	}
-
-	# store rrdtool arg list for speedCGI/mod_perl mode
-	$cfg->{rrdargs}{$log}{$png}{args} = \@args;
-	$cfg->{rrdargs}{$log}{$png}{pngdir} = $pngdir;
-	$cfg->{rrdargs}{$log}{$png}{pngfile} = $pngfile;
-	$cfg->{rrdargs}{$log}{$png}{maxage} = $maxage;
-	return '';
-}
-
-sub show_graph($$$) {
-	# send a graphic, create it if necessary
-	my ($cfg, $q, $png) = @_;
-	my $log = $q->param('log');
-	my $small = $q->param('small') ? '-i' : '';
-
-	my $errstr = '';
-
-	if (!$log) {
-		$errstr="CGI call error: missing param 'log'";
-		goto ERROR;
-	}
-	unless (exists $cfg->{targets}{target}{$log}) {
-		$errstr="target '$log' unknown";
-		goto ERROR;
-	}
-	# fix a problem with indexmaker
-	if ($small) {
-		my %imaker = qw/day.s daily.s week.s weekly month.s monthly year.s yearly/;
-		if (exists $imaker{$png}) {
-			$png = $imaker{$png};
-		}
-	}
-	my $argsref;
-	if (!exists $cfg->{rrdargs}{$log}{"$png$small"}{args}) {
-		$errstr = set_graph_params($cfg, $log, $png, $small);
-		goto ERROR if $errstr;
-	}
-	$argsref = $cfg->{rrdargs}{$log}{"$png$small"}{args};
-
 	# fire up rrdtool
-	my ($a, $rrdx, $rrdy) = RRDs::graph(@$argsref);
+	my ($a, $rrdx, $rrdy) = RRDs::graph(@args);
 	my $e = RRDs::error();
-	log_rrdtool_call($cfg->{config}{'14all*rrdtoollog'},$e,'graph',$argsref);
-	my $pngfile = $cfg->{rrdargs}{$log}{"$png$small"}{pngfile};
+	log_rrdtool_call($config{'14all*rrdtoollog'},$e,'graph',@args);
 	if ($e) {
-		my $pngdir = $cfg->{rrdargs}{$log}{"$png$small"}{pngdir};
 		if (!-w $pngdir) {
 			$errstr = "cannot write to graph dir $pngdir\nrrdtool error: $e";
 		} elsif (-e $pngfile and !-w _) {
@@ -566,9 +513,9 @@ sub show_graph($$$) {
 		} elsif (-e $pngfile) {
 			if (unlink($pngfile)) {
 				# try rrdtool a second time
-				($a, $rrdx, $rrdy) = RRDs::graph(@$argsref);
+				($a, $rrdx, $rrdy) = RRDs::graph(@args);
 				$e = RRDs::error();
-				log_rrdtool_call($cfg->{config}{'14all*rrdtoollog'},$e,'graph',$argsref);
+				log_rrdtool_call($config{'14all*rrdtoollog'},$e,'graph',@args);
 				$errstr = $e ? $errstr."\nrrdtool error from 2. call: $e" : '';
 			} else {
 				$errstr = "cannot delete file $pngfile: $!";
@@ -579,144 +526,339 @@ sub show_graph($$$) {
 	}
 	unless ($errstr) {
 		if (open(PNG, "<$pngfile")) {
-			my $maxage = $cfg->{rrdargs}{$log}{"$png$small"}{maxage};
 			print $q->header(-type => "image/png", -expires => "+${maxage}s");
 			binmode(PNG); binmode(STDOUT);
 			while(read PNG, my $buf, 16384) { print STDOUT $buf; }
 			close PNG;
-			return;
+			exit 0;
 		}
 		$errstr = "cannot read graph file: $!";
 	}
 	ERROR:
-	if (yesorno($cfg->{config}{'14all*grapherrorstobrowser'})) {
+	if (yesorno($config{'14all*grapherrorstobrowser'})) {
 		my ($errpic, $format) = gettextpic($errstr);
 		print $q->header(-type => $format, -expires => 'now');
 		binmode(STDOUT);
 		print $errpic;
-		return;
+		exit 0;
 	}
 	$log ||= '_';
-	if (defined $cfg->{targets}{options}{'14all*errorpic'}{$log} &&
-			open(PNG, $cfg->{targets}{options}{'14all*errorpic'}{$log})) {
+	if (defined $targets{options}{'14all*errorpic'}{$log} &&
+			open(PNG, $targets{options}{'14all*errorpic'}{$log})) {
 		print $q->header(-type => "image/png", -expires => 'now');
 		binmode(PNG); binmode(STDOUT);
 		while(read PNG, my $buf,16384) { print STDOUT $buf; }
 		close PNG;
-		return;
+		exit 0;
 	}
 	print $q->header(-type => "image/png", -expires => 'now');
 	binmode(STDOUT);
 	print pack("C*", errorpng());
-}
-
-sub show_log($$$) {
+	exit 0;
+} elsif (defined $q->param('log')) {
 	# show the graphics for one target
-	my ($cfg, $q, $log) = @_;
-	print_error($q,"Target '$log' unknown") if (!exists $cfg->{targets}{target}{$log});
+	my $log = $q->param('log');
+	print_error($q,"Target '$log' unknown") if (!exists $targets{target}{$log});
 	my $title;
 	# user defined title?
-	if ($cfg->{targets}{title}{$log}) {
-		$title = $cfg->{targets}{title}{$log};
+	if ($targets{title}{$log}) {
+		$title = $targets{title}{$log};
 	} else {
 		$title = "MRTG/RRD - Target $log";
 	}
 	my @httphead;
-	push @httphead, (-expires => '+' . int($cfg->{config}{interval}) . 'm');
-	if (yesorno($cfg->{config}{refresh})) {
-		push @httphead, (-refresh => $cfg->{config}{refresh});
+	push @httphead, (-expires => '+' . int($config{interval}) . 'm');
+	if (yesorno($config{refresh})) {
+		push @httphead, (-refresh => $config{refresh});
 	}
 	my @htmlhead = (-title => $title, @headeropts,
-		-bgcolor => $cfg->{targets}{background}{$log});
-	if ($cfg->{targets}{addhead}{$log}) {
-		push @htmlhead, (-head => $cfg->{targets}{addhead}{$log});
+		-bgcolor => $targets{background}{$log});
+	if ($targets{addhead}{$log}) {
+		push @htmlhead, (-head => $targets{addhead}{$log});
 	}
 	print $q->header(@httphead), $q->start_html(@htmlhead);
 	# user defined header line? (should exist as mrtg requires it)
-	print $cfg->{targets}{pagetop}{$log},"\n";
-	my $rrd = $cfg->{config}{logdir}.$cfg->{targets}{directory}{$log} . $log . '.rrd';
+	print $targets{pagetop}{$log},"\n";
+	my $rrd = $config{logdir}.$targets{directory}{$log} . $log . '.rrd';
 	my $lasttime = RRDs::last($rrd);
-	log_rrdtool_call($cfg->{config}{'14all*rrdtoollog'},'','last',$rrd);
+	my $date = `date \cut -d" " -f5`;
+	log_rrdtool_call($config{'14all*rrdtoollog'},'','last',$rrd);
+
+	my $cfgstr = (defined $q->param('cfg') ? "&cfg=".$q->param('cfg') : '');
+	my $rrdstr = (defined $q->param('log') ? "&rrd=".$q->param('log').".rrd" : '');
+
 	print $q->hr,
-		"The statistics were last updated: ",$q->b(scalar(localtime($lasttime))),
-		$q->hr if $lasttime;
-	my $sup = $cfg->{targets}{suppress}{$log} || '';
-	my $url = "$my14all::meurl?log=$log";
+		"The statistics were last updated(Timezone = CST/CDT): ",$q->b(scalar(localtime($lasttime))),
+		$q->hr if $lasttime ;
+	my $sup = $targets{suppress}{$log} || '';
+	my $url = "$meurl?log=$log";
+        my $exporturl = "rrd-export.cgi?log=$log";
 	my $tmpcfg = $q->param('cfg');
 	$url .= "&cfg=$tmpcfg" if defined $tmpcfg;
 	$url .= "&png";
+
+        my $factorstr="&fact=1";
+
+        if ($targets{options}{bits}{$log}) {
+          $factorstr = "&fact=8"; # bits instead of bytes -> 8x
+        } 
+        if ($targets{options}{perminute}{$log}) {
+          $factorstr = "&fact=60"; # perminute -> 60x
+        } 
+        if ($targets{options}{perhour}{$log}) {
+          $factorstr = "&fact=3600"; # perhour -> 3600
+        } 
+
 	# the header lines and tags for the graphics
-	my $pngdir = getdirwriteable($cfg->{config}{imagedir}, $cfg->{targets}{directory}{$log});
+	my $pngdir = getdirwriteable($config{imagedir}, $targets{directory}{$log});
+        my $cfstr;
+        my $rangestr;
 	if ($sup !~ /d/) {
 		print $q->h2("'Daily' graph (5 Minute Average)"),"\n",
 			$q->img({src => "$url=daily", alt => "daily-graph",
 				getpngsize("$pngdir$log-daily.png")}
 			), "\n";
+
+	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
+           $cfstr="&cf=AVERAGE";
+           $rangestr="&range=240000";
+
+           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
+           print "<br>CSV Export (Last 64 Hours, 5 Minute Average)\n";
+           print "</a>";
+	   # ^^^^^   Added for CSV output links (see 2009-02-27 note below)
 	}
+
+
 	if ($sup !~ /w/) {
 		print $q->h2("'Weekly' graph (30 Minute Average)"),"\n",
 			$q->img({src => "$url=weekly", alt => "weekly-graph",
 				getpngsize("$pngdir$log-weekly.png")}
 			), "\n";
+
+	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
+           $cfstr="&cf=AVERAGE";
+           $rangestr="&range=1440000";
+           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
+           print "<br>CSV Export (Last 16 Days, 30 Minute Average)\n";
+           print "</a>";
+ 
+           $cfstr="&cf=MAX";
+           $rangestr="&range=1440000";
+           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
+           print "<br>CSV Export (Last 16 Days, 30 Minute Maximum)\n";
+           print "</a>";
+	   # ^^^^^   Added for CSV output links (see 2009-02-27 note below)
 	}
+
+
+
 	if ($sup !~ /m/) {
 		print $q->h2("'Monthly' graph (2 Hour Average)"),"\n",
 			$q->img({src => "$url=monthly", alt => "monthly-graph",
 				getpngsize("$pngdir$log-monthly.png")}
 			), "\n";
+	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
+           $cfstr="&cf=AVERAGE";
+           $rangestr="&range=5760000";
+           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
+           print "<br>CSV Export (Last 64 Days, 2 Hour Average)\n";
+           print "</a>";
+
+           $cfstr="&cf=MAX";
+           $rangestr="&range=5760000";
+           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
+           print "<br>CSV Export (Last 64 Days, 2 Hour Maximum)\n";
+           print "</a>";
+	   # ^^^^^   Added for CSV output links (see 2009-02-27 note below)
 	}
+
+
+
+
 	if ($sup !~ /y/) {
 		print $q->h2("'Yearly' graph (1 Day Average)"),"\n",
 			$q->img({src => "$url=yearly", alt => "yearly-graph",
 				getpngsize("$pngdir$log-yearly.png")}
 			), "\n";
-	}
-	if ($cfg->{targets}{pagefoot}{$log}) {
-		print $cfg->{targets}{pagefoot}{$log};
-	}
-}
 
-sub show_dir($$$) {
-	# if no parameter - show a list of directories and targets
-	#    without "Directory[...]" (aka root-targets)
-	# else show a list of targets in the given directory
-	my ($cfg, $q, $dir) = @_;
-	my @httphead;
-	push @httphead, (-expires =>
-		($dir ? '+' . int($cfg->{config}{interval}) . 'm' : '+1d') );
-	if (yesorno($cfg->{config}{refresh})) {
-		push @httphead, (-refresh => $cfg->{config}{refresh});
+	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
+           $cfstr="&cf=AVERAGE";
+           $rangestr="&range=69120000";
+           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
+           print "<br>CSV Export (Last 800 days, 24 Hour Average)\n";
+           print "</a>";
+
+           $cfstr="&cf=MAX";
+           $rangestr="&range=69120000";
+           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
+           print "<br>CSV Export (Last 800 days, 24 Hour Maximum)\n";
+           print "</a>";
+	   # ^^^^   Added for CSV output links (see 2009-02-27 note below)
 	}
-	push @headeropts, (-bgcolor => ($cfg->{config}{'14all*background'} || '#ffffff'));
-	my @htmlhead = (-title =>
-		($dir ? "MRTG/14all - Group $dir" : "MRTG/14all $version"),
-		@headeropts);
+
+
+	if ($targets{pagefoot}{$log}) {
+		print $targets{pagefoot}{$log};
+	}
+	print $footer;
+
+} elsif (defined $q->param('csv')) {   # execute this if ?csv parm is set
+	# This was added 2009-02-27 by Greg Volk <gvolk@gvolk.com>
+	# If csv parm is passed to 14all.cgi, give the user the data as a 
+        # csv file.
+	# Additional CSV related parms to 14all.cgi are:
+	# 	cf - consolidation factor
+	#	range - how far to go back for return data
+	#	fact - multiplicative factor (set to 8 for bytes to bits
+	#	rrd - what rrdfile
+	#	iso8601 - return time in iso8601 format (2009-02-27 15:05)
+	#
+	# A sample call using all the options looks like:
+	# http://myserver/cgi-bin/14all.cgi?&csv=1&rrd=myrouter_fastethernet_10.rrd&cfg=myrouter.cfg&cf=AVERAGE&range=1260000&fact=8&iso8601=1
+	#
+	# A call using the minimum options for csv output looks like:
+	# http://myserver/cgi-bin/14all.cgi?&csv=1&rrd=myrouter_fastethernet_10.rrd&cfg=myrouter.cfg
+	#
+
+	# Hash our month names so we can output in ISO8610 time format (why 
+	# is ISO8601 time output not builtin to perl? Or is it now?
+	my %month = ( 	"Jan" => "01",
+			"Feb" => "02",
+			"Mar" => "03",
+			"Apr" => "04",
+			"May" => "05",
+			"Jun" => "06",
+			"Jul" => "07",
+			"Aug" => "08",
+			"Sep" => "09",
+			"Oct" => "10",
+			"Nov" => "11",
+			"Dec" => "12"   );
+
+	# Declare some vars       
+	my @httphead;
+        my @csvdata;
+	push @httphead, (-expires => 'now');    # don't cache this stuff
+        my $rrd = $q->param('rrd'); 
+
+        my $basedir = $config{logdir};		# find WorkDir in the cfg file
+        my $cf  = $q->param('cf');
+        my $range = $q->param('range');	
+        my $factor = $q->param('fact');	
+        my $iso8601 = $q->param('iso8601');
+        my $end = $q->param('end');
+        my $tar = $rrd;	#target name = rrd filename without .rrd on it
+
+	my ($dir,$ds0name,$ds1name,$element,$time,$yyyy,$mm,$dd,$hour,
+	    $min,$sec,@array,$lt,$hhmmss);
+
+        print_error($q, "Illegal characters in rrd param: ./") if $rrd =~ m'(^/)|(\./)';
+
+        $tar =~ s/\.rrd//g;			# remove ".rrd" from targetname
+
+        $dir = $targets{directory}{$tar};	# what subdir are we looking in?
+        if ($targets{legendi}{$tar}) {		# if legendi and legendo are defined in cfg
+          $ds0name = $targets{legendi}{$tar};   # file, use those for the csv output labels
+        } else {
+          $ds0name = "input";			# udderwise, use the standard input/output
+        }
+        if ($targets{legendo}{$tar}) {
+          $ds1name = $targets{legendo}{$tar};
+        } else {
+          $ds1name = "output";
+        }
+
+        unless ($cf) { $cf = "AVERAGE"; }	# if &cf is not defined, assume AVERAGE
+        unless ($factor) { $factor = 1; }	# if &factor is not defined, assume 1
+        unless ($range) { $range = "240000"; }	# if &range is not defined, assume 48 hours
+        unless ($end) { $end = "now"; }
+
+        my $rrdfile = "$basedir/$dir/$rrd";	# full path to rrdfile
+        my $csvfile = $rrd;			# csv filename
+        $csvfile =~ s/\.rrd/\.csv/g;		# replace .rrd with .csv in filename
+
+        #print "basedir = $basedir dir = $dir rrd = $rrd<br>"; # debug
+        #print "full path to rrdfile = $basedir/$dir/$rrd\n";  # debug
+
+
+	# Get some data, or pointers to data out of the RRD file
+	my ($start,$step,$names,$data) = RRDs::fetch $rrdfile, $cf, "-s -$range", "-e $end";
+
+  	my $ERR = RRDs::error;  # Trap RRD read errors (we'll print below if necessary)
+
+
+        # Iterate over each data point in @$data
+        foreach $element (@$data) {
+          # Increment the time by the step value
+          $time += $step;
+
+          $lt = localtime($start+$time);
+
+	  # Convert to ISO8601 time if &iso8601 is set
+	  if($iso8601) {
+	    # Convert to ISO8601
+	    @array = split /\s+/,$lt;
+	    $yyyy = $array[4];
+	    $mm = $month{$array[1]};
+	    $dd = $array[2];
+
+	    # We want two digit days, turn "9" into "09"
+	    if((length $dd) < 2) { $dd = "0".$dd; }
+       
+	    $hhmmss = $array[3];
+	    @array = split ":",$hhmmss;
+            $hour = $array[0];
+	    $min = $array[1];
+	    $sec = $array[2];
+	    $lt = "$yyyy-$mm-$dd $hour:$min:$sec";
+          }
+        
+	  # Store the values in @csvdata 
+	  push(@csvdata,$lt.",".$$element[0]*$factor.",".$$element[1]*$factor."\n");
+        }
+
+	# Tell the http client what to expect
+        print "Content-Type:application/x-download\n";  
+        print "Content-Disposition:attachment;filename=$csvfile\n\n";
+
+	# Let the client know if RRDs::fetch returned an error
+  	print "Error while reading $rrdfile: $ERR\n" if $ERR;
+
+        # Print the data with a header
+	print "date_time,$ds0name,$ds1name\n";
+        print @csvdata;
+
+	### End of 2009-02-27 mod for csv output
+
+} else {
+	# no parameter - show a list of directories and targets without "Directory[...]" (aka root-targets)
+	my @httphead;
+	push @httphead, (-expires => '+1d'); # how often do you add targets?
+	if (yesorno($config{refresh})) {
+		push @httphead, (-refresh => $config{refresh});
+	}
+	push @headeropts, (-bgcolor => ($config{'14all*background'} || '#ffffff'));
+	my @htmlhead = (-title => "MRTG/RRD $version", @headeropts);
+	#if ($targets{addhead}{_}) {
+	#	push @htmlhead, (-head => $targets{addhead}{_});
+	#}
 	print $q->header(@httphead), $q->start_html(@htmlhead);
 	my (@dirs, %dirs, @logs);
 	# get the list of directories and "root"-targets
-	# or get list of targets from given directory
-	foreach my $tar (@{$cfg->{sorted}}) {
+	foreach my $tar (@sorted) {
 		next if $tar =~ m/^[_\$\^]$/; # pseudo targets
-		if ($cfg->{targets}{directory}{$tar}) {
-			if ($dir) {
-				# show a specified dir. check this targets dir against specified
-				if ($dir eq $cfg->{targets}{directory}{$tar}) {
-					# target is from specified dir
-					push @logs, $tar;
-				}
-				next;
-			}
-			next if exists $dirs{$cfg->{targets}{directory}{$tar}};
-			$dirs{$cfg->{targets}{directory}{$tar}} = $tar;
-			push @dirs, $cfg->{targets}{directory}{$tar};
-		} elsif (!$dir) {
-			# showing 'homepage', add this target
+		if ($targets{directory}{$tar}) {
+			next if exists $dirs{$targets{directory}{$tar}};
+			$dirs{$targets{directory}{$tar}} = $tar;
+			push @dirs, $targets{directory}{$tar};
+		} else {
 			push @logs, $tar;
 		}
 	}
 	my $cfgstr = (defined $q->param('cfg') ? "&cfg=".$q->param('cfg') : '');
 	print $q->h1("Available Targets"),"\n";
-	my $confcolumns = $cfg->{config}{'14all*columns'} || 2;
+	my $confcolumns = $config{'14all*columns'} || 2;
 	if ($#dirs > -1) {
 		print $q->h2("Directories"),"\n\<table width=100\%>\n";
 		my $column = 0;
@@ -724,7 +866,7 @@ sub show_dir($$$) {
 			print '<tr>' if $column == 0;
 			(my $link = $tar) =~ s/ /\+/g;
 			chop $tar; # remove / for display (from ensureSL)
-			print $q->td($q->a({href => "$my14all::meurl?dir=$link$cfgstr"},
+			print $q->td($q->a({href => "$meurl?dir=$link$cfgstr"},
 				$tar)),"\n";
 			$column++;
 			if ($column >= $confcolumns) {
@@ -737,24 +879,23 @@ sub show_dir($$$) {
 		}
 		print '</table><hr>';
 	}
-	my $pngdir = getdirwriteable($cfg->{config}{imagedir},$dir);
 	if ($#logs > -1) {
 		print $q->h2("Targets"),"\n\<table width=100\%>\n";
 		my $column = 0;
 		foreach my $tar (@logs) {
 			my $small = 0;
-			unless (yesorno($cfg->{targets}{'14all*dontshowindexgraph'}{$tar})) {
-				$small = $cfg->{targets}{'14all*indexgraph'}{$tar};
+			unless (yesorno($targets{'14all*dontshowindexgraph'}{$tar})) {
+				$small = $targets{'14all*indexgraph'}{$tar};
 				$small = 'daily.s' unless $small;
 			}
-			next if $tar =~ m/^[\$\^_]$/; # _ is not a real target
+			next if $tar =~ m/^[\$\^_]$/;
 			print '<tr>' if $column == 0;
 			print '<td>',
-				$q->p($q->a({href => "$my14all::meurl?log=$tar$cfgstr"}, $cfg->{targets}{title}{$tar}));
-			print $q->a({href => "$my14all::meurl?log=$tar$cfgstr"},
-				$q->img({src => "$my14all::meurl?log=$tar&png=$small&small=1$cfgstr",
+				$q->p($q->a({href => "$meurl?log=$tar$cfgstr"},$targets{title}{$tar}));
+			print $q->a({href => "$meurl?log=$tar$cfgstr"},
+				$q->img({src => "$meurl?log=$tar&png=$small&small=1$cfgstr",
 					alt => "index-graph",
-					getpngsize("$pngdir$tar-$small-i.png")}))
+					getpngsize(getdirwriteable($config{imagedir},'')."$tar-$small-i.png")}))
 				if $small;
 			print "\</td>\n";
 			$column++;
@@ -768,7 +909,9 @@ sub show_dir($$$) {
 		}
 		print '</table>';
 	}
+	print $footer;
 }
+exit 0;
 
 sub print_error($@)
 {
@@ -826,7 +969,7 @@ sub pngstring() { return chr(137)."PNG".chr(13).chr(10).chr(26).chr(10); };
 sub getpngsize($)
 {
 	my ($file) = @_;
-	my $fh = new IO::File $file;
+	my $fh = IO::File->new;
 	return () unless defined $fh;
 	my $line;
 	if (sysread($fh, $line, 8) != 8 or $line ne pngstring()) {
@@ -909,7 +1052,7 @@ sub gettextpic($) {
 	unless ($@) {
 		my $ys = @textsplit * (GD::gdMediumBoldFont()->height + 5);
 		my $xs = $len * GD::gdMediumBoldFont()->width();
-		my $im = new GD::Image($xs + 30, $ys + 20);
+		my $im = new GD::Image($xs + 20, $ys + 20);
 		my $back = $im->colorAllocate(255,255,255);
 		$im->transparent($back);
 		my $red = $im->colorAllocate(255,0,0);
@@ -952,21 +1095,14 @@ sub gettextpic($) {
 }
 
 sub log_rrdtool_call($$@) {
-    my ($logfile, $error, @args) = @_;
+	my $logfile = shift;
+	my $error = shift;
 	return unless yesorno($logfile);
 	unless (open(LOG, '>>'.$logfile)) {
 		print STDERR "cannot log rrdtool call: $!\n";
 		return;
 	}
-	print LOG "\n# call to rrdtool:\nrrdtool ";
-    foreach my $arg (@args) {
-        if (ref($arg) eq 'ARRAY') {
-            print LOG join(' ',@$arg),' ';
-        } else {
-            print LOG $arg," ";
-        }
-    }
-    print LOG "\n";
+	print LOG "\n# call to rrdtool:\nrrdtool @_\n";
 	if ($error) {
 		print LOG "# gave ERROR: $error\n";
 	} else {
