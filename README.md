@@ -43,6 +43,7 @@ ENV USERID "100"
 ENV GROUPID "101"
 ENV REGENERATEHTML "yes"
 ENV INDEXMAKEROPTIONS ""
+ENV MRTG_COLUMNS 2
 ```
 
 The variable `TZ` will configure the timezone used by the OS and MRTG to show dates and times.
@@ -74,6 +75,8 @@ The variable `REGENERATEHTML` (default: "yes") determines if the index.html file
 
 The variable `INDEXMAKEROPTIONS` (default: empty string) allows you to add any extra options passed to `indexmaker`, e.g. `--nolegend`.
 
+The variable `MRTG_COLUMNS` (default: 2) defines the number of columns in the index.html file.  This is useful if you have a large number of hosts and want to display them in multiple columns.
+
 ## Persistence
 
 The container will create the following directories:
@@ -97,11 +100,10 @@ $ docker run -d -p 8880:80 -e "HOSTS='public:localhost,community:ipaddress'" -v 
 ## docker-compose
 
 ```yaml
-version: "3.5"
-
+---
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:2.5.0
+    image: fboaventura/dckr-mrtg:2.5.4
     hostname: mrtg
     restart: always
     ports:
@@ -117,6 +119,9 @@ services:
         WEBDIR: "/mrtg/html"
         USERID: 1000
         GROUPID: 1000
+        REGENERATEHTML: "yes"
+        INDEXMAKEROPTIONS: ""
+        MRTG_COLUMNS: 2
     tmpfs:
       - "/run"
 ```
@@ -124,6 +129,23 @@ services:
 Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8880`
 
 ## ChangeLog
+
+### v2.5.4 - 2024.07.11
+- Updated packages versions
+- Updated the `14all.cgi` script, added option to export the data in CSV format
+- Added the `MRTG_COLUMNS` environment variable to set the number of columns in the index.html file
+
+### v2.5.3 - 2023.11.25
+- Force font cache clean-up to avoid fontconfig errors
+- Fix security concerts in Dockerfile
+- Fixed errors with lighttpd configuration
+- Added fixed versions to packages
+- Added command to update alpine packages
+
+### v2.5.2 - 2023.08.29
+- Updated Alpine version to reduce vulnerabilities
+- Fix missing icon images when using PathPrefix (@michaelkrieger)
+
 ### v2.5.1 - 2023.01.15
 - Fixed the auto-build to publish multi-arch versions and documentation
 - Added volume information to README.md
