@@ -4,16 +4,21 @@ MRTGDIR=${MRTGDIR:-"/etc/mrtg"}
 WEBDIR=${WEBDIR:-"/mrtg/html"}
 MRTGCFG=${MRTGDIR}/mrtg.cfg
 PATHPREFIX=${PATHPREFIX:-""}
+ENABLE_V6=${ENABLE_V6:-"no"}
+REGENERATEHTML=${REGENERATEHTML:-"yes"}
+INDEXMAKEROPTIONS=${INDEXMAKEROPTIONS:-""}
+HOSTS=${HOSTS:-""}
+MRTG_COLUMNS=${MRTG_COLUMNS:-"2"}
 
-usermod -u "${USERID}" lighttpd
-groupmod -g "${GROUPID}" lighttpd
+usermod -u "${USERID}" lighttpd >/dev/null 2>&1
+groupmod -g "${GROUPID}" lighttpd >/dev/null 2>&1
 
 [[ ! -d "${MRTGDIR}" ]] && mkdir -p "${MRTGDIR}"
 [[ ! -d "${WEBDIR}" ]] && mkdir -p "${WEBDIR}"
 [[ ! -d "${WEBDIR}/icons" ]] && cp -R /mrtg/icons "${WEBDIR}"/
 
 if [ -n "${PATHPREFIX}" ]; then
-    echo "IconDir: ${PATHPREFIX}" > "${MRTGDIR}/conf.d/001-IconDir.cfg"
+    echo "IconDir: ${PATHPREFIX}/icons" > "${MRTGDIR}/conf.d/001-IconDir.cfg"
 else
     echo "IconDir: /icons" > "${MRTGDIR}/conf.d/001-IconDir.cfg"
 fi
@@ -74,7 +79,14 @@ if [ "${REGENERATEHTML}" == "yes" ]; then
   if [ -e "${WEBDIR}/index.html" ]; then
      mv -f "${WEBDIR}/index.html" "${WEBDIR}/index.old"
   fi
-  /usr/bin/indexmaker --columns=1 "${MRTGCFG}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" "${INDEXMAKEROPTIONS}" > "${WEBDIR}/index.html"
+  if [ -n "${INDEXMAKEROPTIONS}" ]; then
+    echo /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" "${INDEXMAKEROPTIONS}" --output="${WEBDIR}/index.html"
+    /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" "${INDEXMAKEROPTIONS}" --output="${WEBDIR}/index.html"
+  else
+    echo /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" --output="${WEBDIR}/index.html"
+    /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" --output="${WEBDIR}/index.html"
+  fi
+  echo "HTML regenerated"
 fi
 
 
