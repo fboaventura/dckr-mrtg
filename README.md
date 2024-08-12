@@ -103,7 +103,7 @@ $ docker run -d -p 8880:80 -e "HOSTS='public:localhost,community:ipaddress'" -v 
 ---
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:2.5.4
+    image: fboaventura/dckr-mrtg:v2.5.4
     hostname: mrtg
     restart: always
     ports:
