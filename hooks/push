@@ -1,10 +1,53 @@
 #!/bin/bash
+# This script pushes the Docker image to the repository using the cache built from the build script and tagging
+# accordingly.
+
+#####################################
+# "=-=-=-=-= Environment =-=-=-=-="
+#####################################
+export VERSION=$(xargs < VERSION)
+export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+export VCS_REF=$(git rev-parse --short HEAD)
+export PLATFORMS="linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7,linux/386,linux/ppc64le,linux/s390x,linux/riscv64"
+
+#####################################
+# "=-=-=-=-= Settings =-=-=-=-="
+#####################################
+if [ "${SOURCE_BRANCH}" == "master" ]; then
+  export IMG_VERSION="${VERSION}"
+  export LATEST="latest"
+  export PLATFORMS_VERSIONS="arm64/v8:arm64v8,amd64:amd64,arm/v6:arm32v6,arm/v7:arm32v7,386:i386"
+else
+  export IMG_VERSION="${VERSION}-dev"
+  export LATEST="dev"
+fi
+
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
-docker buildx build \
-  --push \
-  --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
-  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  --build-arg VERSION=$(cat VERSION) \
-  --build-arg VCS_REF=$(git rev-parse --short HEAD) \
-  --tag "${DOCKER_REPO}:latest" \
-  --tag "${IMAGE_NAME}" .
+for _tag in "${IMG_VERSION}" "${LATEST}"
+do
+  docker tag "${IMAGE_NAME}" "${DOCKER_REPO}:${_tag}"
+  docker push "${DOCKER_REPO}:${_tag}"
+#  docker buildx build \
+#    --push \
+#    --platform "${PLATFORMS}" \
+#    --build-arg BUILD_DATE="${BUILD_DATE}" \
+#    --build-arg VERSION="${VERSION}" \
+#    --build-arg VCS_REF="${VCS_REF}" \
+#    --tag "${DOCKER_REPO}:${_tag}" \
+#    --tag "${IMAGE_NAME}" .
+done
+
+if [ "${SOURCE_BRANCH}" == "master" ]; then
+  for platform in ${PLATFORMS_VERSIONS//,/ }
+  do
+    IFS=':' read -r -a pltf <<< "$platform"
+    docker buildx build \
+      --push \
+      --platform linux/"${pltf[0]}" \
+      --build-arg BUILD_DATE="${BUILD_DATE}" \
+      --build-arg VERSION="${VERSION}" \
+      --build-arg VCS_REF="${VCS_REF}" \
+      --tag "${DOCKER_REPO}:${IMG_VERSION}-${pltf[1]}" \
+      --tag "${IMAGE_NAME}" .
+  done
+fi
