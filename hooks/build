@@ -43,7 +43,6 @@ echo docker build \
   --tag "${IMAGE_NAME}" .
 
 docker build \
-  -- load \
   --platform "${PLATFORMS}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VERSION="${VERSION}" \
