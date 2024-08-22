@@ -26,10 +26,10 @@ export PLATFORMS="linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7,linux/386
 # "=-=-=-=-= Settings =-=-=-=-="
 #####################################
 if [ "${SOURCE_BRANCH}" == "master" ]; then
-  export IMG_VERSION="${VERSION}"
+  export IMG_VERSION="v${VERSION}"
   export LATEST="latest"
 else
-  export IMG_VERSION="${VERSION}-dev"
+  export IMG_VERSION="v${VERSION}-dev"
   export LATEST="dev"
 fi
 
