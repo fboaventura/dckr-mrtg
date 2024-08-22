@@ -34,7 +34,7 @@ else
 fi
 
 echo "=-=-=-=-= Building Images =-=-=-=-="
-echo docker build \
+echo docker buildx build \
   --platform "${PLATFORMS}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VERSION="${VERSION}" \
@@ -42,7 +42,7 @@ echo docker build \
   --tag "${DOCKER_REPO}:${LATEST}" \
   --tag "${IMAGE_NAME}" .
 
-docker build \
+docker buildx build \
   --platform "${PLATFORMS}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VERSION="${VERSION}" \
