@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # 14all.cgi
 #
@@ -28,12 +28,20 @@ my $version = "14all.cgi 1.1p$1";
 use strict;
 use warnings;
 
+no warnings 'all';
+
 use CGI;
 BEGIN { eval { require CGI::Carp; import CGI::Carp qw/fatalsToBrowser/ }
 	if $^O !~ m/Win/i };
 use RRDs;
 # use MRTG_lib "/usr/share/perl5/MRTG_lib.pm";
 use MRTG_lib;
+
+sub main();
+sub set_graph_params($$$$);
+sub show_graph($$$);
+sub show_log($$$);
+sub show_dir($$$);
 
 sub print_error($@);
 sub intmax(@);
@@ -46,7 +54,9 @@ sub gettextpic($);
 sub log_rrdtool_call($$@);
 
 my ($q, $cfgfile, $cfgfiledir);
-my ($cgidir, @author, @style);
+my (@author, @style);
+
+my $timezone = $ENV{'TZ'} || 'UTC';
 
 ### where the mrtg.cfg file is
 # anywhere in the filespace
@@ -75,7 +85,7 @@ if (!$cfgfile && $#ARGV == 0) {
 }
 
 # initialize CGI
-$q = new CGI;
+$q = CGI->new;
 
 # change for mrtg-2.9.*
 my (@sorted, %config, %targets);
@@ -96,6 +106,7 @@ my %myrules = (
 	'14all*indexgraphsize[]' =>
 		[sub{$_[0] =~ m/^\d+[,\s]+\d+$/o}, sub{"14all*indexgraphsize: need two numbers"}],
 	'14all*maxrules[]' => [sub{1}, sub{"Internal Error"}],
+    '14all*stackgraph[]' => [sub{1}, sub{"Internal Error"}],
 );
 
 my %graphparams = (
@@ -139,10 +150,14 @@ if (exists $config{refresh} && yesorno($config{refresh})
 }
 
 my @headeropts = (@author, @style);
+if (!$config{IconDir}) {
+	$config{IconDir} = $config{icondir} || $meurl;
+	$config{IconDir} .= '/' unless $config{IconDir} =~ m'/$';
+}
 
 # the footer we print on every page
 $config{icondir} ||= ''; # lets have a default for this
-my $footer = <<"EOT" . $q->end_html;
+my $footer = <<"EOT" . ($q->end_html//'');
 <br/>
 <br/>
 <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
@@ -208,7 +223,7 @@ if (defined $q->param('dir')) {
 		my $descr = 0;
 		unless (yesorno($targets{'14all*dontshowindexgraph'}{$tar})) {
 			$small = $targets{'14all*indexgraph'}{$tar};
-			$small = 'daily.s' unless $small;
+			$small = 'daily.s' unless defined $small;
 		}
 		next if $tar =~ m/^[\$\^\_]$/; # _ is not a real target
 		next if $targets{directory}{$tar} ne $dir;
@@ -227,7 +242,7 @@ if (defined $q->param('dir')) {
 			$q->img({src => "$meurl?log=$tar&png=$small&small=1$cfgstr",
 				alt => "index-graph",
 				getpngsize("$pngdir$tar-$small-i.png")})
-			) if $small;
+			) if defined $small;
 		print "\</td>\n";
 		$column++;
 		if ($column >= $confcolumns) {
@@ -262,7 +277,7 @@ if (defined $q->param('dir')) {
 	}
 	my ($start, $end, $maxage);
 	my $graphparams = $targets{"graph*$png"}{$log};
-	if ($graphparams) {
+	if (defined $graphparams) {
 		($start, $end, $maxage) = split(/[,\s]+/, $graphparams, 3);
 	}
 	unless ($start && $end && $maxage) {
@@ -284,6 +299,12 @@ if (defined $q->param('dir')) {
 		$errstr="cannot get image sizes for graph $png / target $log";
 		goto ERROR;
 	}
+
+	# Initialize variables with default values if necessary
+	$config{logdir} = '' unless defined $config{logdir};
+	$targets{directory}{$log} = '' unless defined $targets{directory}{$log};
+	$log = '' unless defined $log;
+
 	my $rrd = $config{logdir}.$targets{directory}{$log} . $log . '.rrd';
 	# escape ':' and '\' with \ in $rrd
 	# (rrdtool replaces '\:' by ':' and '\\' by '\')
@@ -581,14 +602,14 @@ if (defined $q->param('dir')) {
 	print $targets{pagetop}{$log},"\n";
 	my $rrd = $config{logdir}.$targets{directory}{$log} . $log . '.rrd';
 	my $lasttime = RRDs::last($rrd);
-	my $date = `date \cut -d" " -f5`;
+	# my $date = `date \cut -d" " -f5`;
 	log_rrdtool_call($config{'14all*rrdtoollog'},'','last',$rrd);
 
 	my $cfgstr = (defined $q->param('cfg') ? "&cfg=".$q->param('cfg') : '');
 	my $rrdstr = (defined $q->param('log') ? "&rrd=".$q->param('log').".rrd" : '');
 
 	print $q->hr,
-		"The statistics were last updated(Timezone = CST/CDT): ",$q->b(scalar(localtime($lasttime))),
+		"The statistics were last updated(Timezone = ". $timezone ."): ",$q->b(scalar(localtime($lasttime))),
 		$q->hr if $lasttime ;
 	my $sup = $targets{suppress}{$log} || '';
 	my $url = "$meurl?log=$log";
