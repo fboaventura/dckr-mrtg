@@ -1,20 +1,26 @@
 #!/bin/bash -e
 
+MIBSDIR=${MIBSDIR:-"/mrtg/mibs"}
 MRTGDIR=${MRTGDIR:-"/etc/mrtg"}
 WEBDIR=${WEBDIR:-"/mrtg/html"}
+
 MRTGCFG=${MRTGDIR}/mrtg.cfg
-PATHPREFIX=${PATHPREFIX:-""}
+
+CFGMAKEROPTIONS=${CFGMAKEROPTIONS:-""}
 ENABLE_V6=${ENABLE_V6:-"no"}
-REGENERATEHTML=${REGENERATEHTML:-"yes"}
-INDEXMAKEROPTIONS=${INDEXMAKEROPTIONS:-""}
+GRAPHOPTIONS=${GRAPHOPTIONS:-"growright, bits"}
 HOSTS=${HOSTS:-""}
+INDEXMAKEROPTIONS=${INDEXMAKEROPTIONS:-""}
 MRTG_COLUMNS=${MRTG_COLUMNS:-"2"}
+PATHPREFIX=${PATHPREFIX:-""}
+REGENERATEHTML=${REGENERATEHTML:-"yes"}
 
 usermod -u "${USERID}" lighttpd >/dev/null 2>&1
 groupmod -g "${GROUPID}" lighttpd >/dev/null 2>&1
 
 [[ ! -d "${MRTGDIR}" ]] && mkdir -p "${MRTGDIR}"
 [[ ! -d "${WEBDIR}" ]] && mkdir -p "${WEBDIR}"
+[[ ! -d "${MIBSDIR}" ]] && mkdir -p "${MIBSDIR}"
 [[ ! -d "${WEBDIR}/icons" ]] && cp -R /mrtg/icons "${WEBDIR}"/
 
 if [ -n "${PATHPREFIX}" ]; then
@@ -23,25 +29,43 @@ else
     echo "IconDir: /icons" > "${MRTGDIR}/conf.d/001-IconDir.cfg"
 fi
 
+if [ -n "$(ls -A "${MIBSDIR}")" ]; then
+  echo "Loading MIBs from ${MIBSDIR}"
+  _MIBS_FILES=$(find "${MIBSDIR}" -type f -print0 | xargs -0 echo | tr ' ' ',')
+  echo "LoadMIBs: ${_MIBS_FILES}" > "${MRTGDIR}/conf.d/002-LoadMIBs.cfg"
+  echo "MIBS: ${_MIBS_FILES}"
+fi
+
 if [ -n "${HOSTS}" ]; then
     hosts=$(echo "${HOSTS}" | tr ',;' ' ')
     for asset in ${hosts}; do
         read -r COMMUNITY HOST VERSION PORT < <(echo "${asset//:/ }")
-        # COMMUNITY=$(echo $asset | cut -d: -f1)
-        # HOST=$(echo $asset | cut -d: -f2)
         if [[ "${VERSION}" -eq "2" || -z "${VERSION}" ]]; then _snmp_ver="2c"; else _snmp_ver=${VERSION}; fi
         NAME=$(snmpwalk -Oqv -v"${_snmp_ver}" -c "${COMMUNITY}" "${HOST}":"${PORT:-"161"}" .1.3.6.1.2.1.1.5)
         if [ -z "${NAME}" ]; then
             NAME="${HOST}"
         fi
-        [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]] && /usr/bin/cfgmaker \
-            --ifref=name \
-            --global "WorkDir: ${WEBDIR}" \
-            --global "Options[_]: growright, bits" \
-            --global "EnableIPv6: ${ENABLE_V6}" \
-            --global "LogFormat: rrdtool" \
-            --snmp-options=:"${PORT:-"161"}"::::"${VERSION:-"2"}" \
-            --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
+        if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
+          if [ -n "${CFGMAKEROPTIONS}" ]; then
+            /usr/bin/cfgmaker \
+                --ifref=name \
+                --global "WorkDir: ${WEBDIR}" \
+                --global "Options[_]: ${GRAPHOPTIONS}" \
+                --global "EnableIPv6: ${ENABLE_V6}" \
+                --global "LogFormat: rrdtool" \
+                --snmp-options=:"${PORT}"::::"${VERSION}" \
+                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}" "${CFGMAKEROPTIONS}"
+          else
+            /usr/bin/cfgmaker \
+                --ifref=name \
+                --global "WorkDir: ${WEBDIR}" \
+                --global "Options[_]: ${GRAPHOPTIONS}" \
+                --global "EnableIPv6: ${ENABLE_V6}" \
+                --global "LogFormat: rrdtool" \
+                --snmp-options=:"${PORT}"::::"${VERSION}" \
+                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
+          fi
+        fi
     done
 else
     COMMUNITY=${1:-"public"}
@@ -49,21 +73,35 @@ else
     VERSION=${3:-"2"}
     PORT=${4:-"161"}
     if [[ "${VERSION}" -eq "2" || -z "${VERSION}" ]]; then _snmp_ver="2c"; else _snmp_ver=${VERSION}; fi
-    NAME=$(snmpwalk -Oqv -v"${_snmp_ver}" -c "${COMMUNITY}" "${HOST}":"${PORT}" .1.3.6.1.2.1.1.5)
+    NAME=$(snmpwalk -Oqv -v"${_snmp_ver}" -c "${COMMUNITY}" "${HOST}":"${PORT}" .1.3.6.1.2.1.1.5 | tr '[:upper:]' '[:lower:]' | tr '[:space:]' '_')
     if [ -z "${NAME}" ]; then
         NAME="${HOST}"
     fi
-    [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]] && /usr/bin/cfgmaker \
+    if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
+      if [ -n "${CFGMAKEROPTIONS}" ]; then
+        /usr/bin/cfgmaker \
             --ifref=name \
-            --global "Options[_]: growright, bits" \
+            --global "WorkDir: ${WEBDIR}" \
+            --global "Options[_]: ${GRAPHOPTIONS}" \
+            --global "EnableIPv6: ${ENABLE_V6}" \
+            --global "LogFormat: rrdtool" \
+            --snmp-options=:"${PORT}"::::"${VERSION}" \
+            --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}" "${CFGMAKEROPTIONS}"
+      else
+        /usr/bin/cfgmaker \
+            --ifref=name \
+            --global "WorkDir: ${WEBDIR}" \
+            --global "Options[_]: ${GRAPHOPTIONS}" \
             --global "EnableIPv6: ${ENABLE_V6}" \
             --global "LogFormat: rrdtool" \
             --snmp-options=:"${PORT}"::::"${VERSION}" \
             --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
+      fi
+    fi
 fi
 
 # Force font cache clean-up to avoid fontconfig errors
-chmod 777 /var/cache/fontconfig
+chmod 755 /var/cache/fontconfig
 rm -rf /var/cache/fontconfig/*
 fc-cache -f
 
