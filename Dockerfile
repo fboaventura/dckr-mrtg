@@ -1,32 +1,39 @@
 FROM alpine:3
 
-ENV TZ "UTC"
-ENV ENABLE_V6 "no"
-ENV HOSTS "public:localhost"
-ENV USERID "100"
-ENV GROUPID "101"
-ENV REGENERATEHTML "yes"
-ENV INDEXMAKEROPTIONS ""
-ENV MRTG_COLUMNS 2
+ENV CFGMAKEROPTIONS=""
+ENV ENABLE_V6="no"
+ENV GRAPHOPTIONS="growright, bits"
+ENV GROUPID="101"
+ENV HOSTS="public:localhost"
+ENV INDEXMAKEROPTIONS=""
+ENV MIBSDIR="/mrtg/mibs"
+ENV MRTG_COLUMNS=2
+ENV PATHPREFIX=""
+ENV REGENERATEHTML="yes"
+ENV TZ="UTC"
+ENV USERID="100"
+ENV WEBDIR="/mrtg/html"
 
 RUN apk add --update --no-cache \
       bash=~5.2.26-r0 \
       dcron=~4.5-r9 \
       font-space-mono-nerd=~3.2.1-r0 \
+      libsmi=~0.5.0-r3 \
       lighttpd=~1.4.76-r0 \
       mrtg=~2.17.10-r1 \
+      net-snmp-libs=~5.9.4-r0 \
       net-snmp-tools=~5.9.4-r0 \
       perl-cgi=~4.64-r0 \
-      perl-rrd=~1.8.0-r6 \
       perl-dev=~5.38.2-r0 \
-      rrdtool=~1.8.0-r6 \
+      perl-rrd=~1.8.0-r6 \
       rrdtool-cgi=~1.8.0-r6 \
+      rrdtool=~1.8.0-r6 \
       shadow=~4.15.1-r0 \
       tzdata=~2024a-r1 \
     && apk upgrade --no-cache \
     && rm -rf /var/cache/apk/* \
     && mkdir -p /etc/mrtg/conf.d \
-    && mkdir -p /mrtg/cgi-bin /mrtg/html /mrtg/fonts
+    && mkdir -p /mrtg/cgi-bin /mrtg/html /mrtg/fonts /mrtg/mibs
 
 COPY files/mrtg.sh /usr/sbin/mrtg.sh
 COPY files/mrtg.cron /etc/crontabs/root
@@ -44,15 +51,15 @@ ARG VENDOR
 ARG VERSION
 ARG AUTHOR
 
-LABEL org.label-schema.build-date=$BUILD_DATE \
-      org.label-schema.name="MRTG" \
-      org.label-schema.description="Multi\ Router\ Traffic\ Grapher." \
-      org.label-schema.url="https://fboaventura.dev" \
-      org.label-schema.vcs-url="https://github.com/fboaventura/dckr-mrtg" \
-      org.label-schema.vcs-ref=$VCS_REF \
-      org.label-schema.vendor="$VENDOR" \
-      org.label-schema.version="$VERSION" \
-      org.label-schema.schema-version="1.0" \
-      org.label-schema.author="$AUTHOR" \
-      org.label-schema.docker.dockerfile="/Dockerfile" \
-      org.label-schema.license="MIT"
+LABEL \
+      org.opencontainers.image.authors="$AUTHOR" \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.description="Docker instance to run MRTG - The Multi Router Traffic Grapher" \
+      org.opencontainers.image.documentation="https://github.com/fboaventura/dckr-mrtg/README.md" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.revision=$VCS_REF \
+      org.opencontainers.image.source="https://github.com/fboaventura/dckr-mrtg" \
+      org.opencontainers.image.title="fboaventura/dckr-mrtg" \
+      org.opencontainers.image.url="https://fboaventura.dev" \
+      org.opencontainers.image.vendor="$AUTHOR" \
+      org.opencontainers.image.version="$VERSION"
