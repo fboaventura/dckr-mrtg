@@ -1,18 +1,51 @@
 #!/bin/bash
+# This script builds the Docker image with the intention of cache building that will be used later for tagged push
+# .
 # $IMAGE_NAME var is injected into the build so the tag is correct.
+# $DOCKER_REPO is the repository to push to.
+# Platforms:
+# - linux/arm64/v8
+# - linux/amd64
+# - linux/arm/v6
+# - linux/arm/v7
+# - linux/386
+# - linux/ppc64le
+# - linux/s390x
+# - linux/riscv64
+#
+
+#####################################
+# "=-=-=-=-= Environment =-=-=-=-="
+#####################################
+export VERSION=$(xargs < VERSION)
+export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+export VCS_REF=$(git rev-parse --short HEAD)
+export PLATFORMS="linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7,linux/386,linux/ppc64le,linux/s390x,linux/riscv64"
+
+#####################################
+# "=-=-=-=-= Settings =-=-=-=-="
+#####################################
+if [ "${SOURCE_BRANCH}" == "master" ]; then
+  export IMG_VERSION="v${VERSION}"
+  export LATEST="latest"
+else
+  export IMG_VERSION="v${VERSION}-dev"
+  export LATEST="dev"
+fi
+
 echo "=-=-=-=-= Building Images =-=-=-=-="
 echo docker buildx build \
-  --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
-  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  --build-arg VERSION=$(xargs < VERSION) \
-  --build-arg VCS_REF=$(git rev-parse --short HEAD) \
-  --tag "${DOCKER_REPO}:latest" \
+  --platform "${PLATFORMS}" \
+  --build-arg BUILD_DATE="${BUILD_DATE}" \
+  --build-arg VERSION="${VERSION}" \
+  --build-arg VCS_REF="${VCS_REF}" \
+  --tag "${DOCKER_REPO}:${LATEST}" \
   --tag "${IMAGE_NAME}" .
 
 docker buildx build \
-  --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
-  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-  --build-arg VERSION="$(xargs < VERSION)" \
-  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-  --tag "${DOCKER_REPO}:latest" \
+  --platform "${PLATFORMS}" \
+  --build-arg BUILD_DATE="${BUILD_DATE}" \
+  --build-arg VERSION="${VERSION}" \
+  --build-arg VCS_REF="${VCS_REF}" \
+  --tag "${DOCKER_REPO}:${LATEST}" \
   --tag "${IMAGE_NAME}" .
