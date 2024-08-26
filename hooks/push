@@ -23,12 +23,9 @@ else
 fi
 
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
-for _tag in "${IMG_VERSION}" "${LATEST}"
+# shellcheck disable=SC2086
+for _tag in ${IMG_VERSION} ${LATEST}
 do
-#  echo docker tag "${DOCKER_REPO}:${LATEST}" "${DOCKER_REPO}:${_tag}"
-#  docker tag "${DOCKER_REPO}:${LATEST}" "${DOCKER_REPO}:${_tag}"
-#  echo docker push "${DOCKER_REPO}:${_tag}"
-#  docker push "${DOCKER_REPO}:${_tag}"
   docker buildx build \
     --push \
     --platform "${PLATFORMS}" \
