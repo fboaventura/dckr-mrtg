@@ -35,6 +35,7 @@ fi
 
 echo "=-=-=-=-= Building Images =-=-=-=-="
 echo docker buildx build \
+  --provenance=true --sbom=true \
   --platform "${PLATFORMS}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VERSION="${VERSION}" \
@@ -43,6 +44,7 @@ echo docker buildx build \
   --tag "${IMAGE_NAME}" .
 
 docker buildx build \
+  --provenance=true --sbom=true \
   --platform "${PLATFORMS}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VERSION="${VERSION}" \

@@ -31,6 +31,7 @@ do
 #  docker push "${DOCKER_REPO}:${_tag}"
   docker buildx build \
     --push \
+    --provenance=true --sbom=true \
     --platform "${PLATFORMS}" \
     --build-arg BUILD_DATE="${BUILD_DATE}" \
     --build-arg VERSION="${VERSION}" \
@@ -45,6 +46,7 @@ if [ "${SOURCE_BRANCH}" == "master" ]; then
     IFS=':' read -r -a pltf <<< "$platform"
     docker buildx build \
       --push \
+      --provenance=true --sbom=true \
       --platform linux/"${pltf[0]}" \
       --build-arg BUILD_DATE="${BUILD_DATE}" \
       --build-arg VERSION="${VERSION}" \
