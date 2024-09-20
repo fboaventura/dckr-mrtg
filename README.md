@@ -37,6 +37,7 @@ This image is built for all the architectures supported by Alpine image. Althoug
       * [From the command line:](#from-the-command-line)
       * [docker-compose](#docker-compose)
    * [ChangeLog](#changelog)
+      * [v2.5.6 - 2024.09.20](#v256---20240920)
       * [v2.5.5 - 2024.08.22](#v255---20240822)
       * [v2.5.4 - 2024.07.11](#v254---20240711)
       * [v2.5.3 - 2023.11.25](#v253---20231125)
@@ -175,7 +176,7 @@ $ docker run -d -p 8880:80 -e "HOSTS='public:localhost,community:ipaddress'" -v 
 ---
 services:
   mrtg:
-    image: fboaventura/dckr-mrtg:v2.5.5
+    image: fboaventura/dckr-mrtg:latest
     hostname: mrtg
     restart: always
     ports:
@@ -193,7 +194,7 @@ services:
         GROUPID: 1000
         REGENERATEHTML: "yes"
         INDEXMAKEROPTIONS: ""
-        CFGMAKEROPTIONS: "--zero-speed=1000000000 --show-op-down"
+        CFGMAKEROPTIONS: "--zero-speed=1000000000"
         MRTG_COLUMNS: 2
     tmpfs:
       - "/run"
@@ -202,6 +203,12 @@ services:
 Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8880` or `http://<server_ip>:8880` and you will see the MRTG index page.
 
 ## ChangeLog
+
+### v2.5.6 - 2024.09.20
+- Updated packages versions
+- Fixed `indexmaker` and `cfgmaker` options (Fixes #25)
+- Added support for [devcontainers](https://containers.dev/)
+- Added `provenance` and `SBOM` attestations to the builds
 
 ### v2.5.5 - 2024.08.22
 - Added versioned `dev` branches for development
