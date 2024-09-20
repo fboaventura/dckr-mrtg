@@ -1,0 +1,111 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/alpine
+{
+  "name": "dckr-mrtg-dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu22.04",
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZshConfig": true
+    },
+    "ghcr.io/devcontainers-contrib/features/bin:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "dockerDashComposeVersion": "latest",
+      "installDockerBuildx": true,
+
+    },
+    "ghcr.io/marcozac/devcontainer-features/shellcheck:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-community/features/direnv": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-contrib/features/tmux-apt-get:1": {},
+    "ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {}
+  },
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  "forwardPorts": [
+    80,
+    8080
+  ],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  // "postCreateCommand": "uname -a",
+
+  // Configure tool-specific properties.
+  "customizations": {
+    "jetbrains": {
+      "settings": {
+        "com.intellij:app:EditorSettings.soft_wrap_file_masks": "*.md; *.txt; *.rst; *.adoc",
+        "com.intellij:app:EditorSettings.is_ensure_newline_at_eof": true,
+        "com.intellij:app:EditorSettings.remove_trailing_blank_lines": true,
+        "com.intellij:app:EmmetOptions.previewEnabled": true
+      },
+      "backend": "PyCharm"
+    },
+    "vscode": {
+      "extensions": [
+        "timonwong.shellcheck",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "editor.fontLigatures": true,
+        "editor.fontSize": 13,
+        "editor.formatOnPaste": true,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "editor.guides.bracketPairs": true,
+        "editor.inlineSuggest.enabled": true,
+        "editor.minimap.enabled": false,
+        "files.autoSave": "onFocusChange",
+        "files.autoSaveDelay": 1000,
+        "files.hotExit": "onExitAndWindowClose",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "shellcheck.enable": true,
+        "shellcheck.enableQuickFix": true,
+        "shellcheck.run": "onType",
+        "shellcheck.executablePath": "",
+        "shellcheck.exclude": [],
+        "shellcheck.customArgs": [],
+        "shellcheck.ignorePatterns": {
+          "**/*.login": true,
+          "**/*.logout": true,
+          "**/*.zsh": true,
+          "**/*.zshrc": true,
+          "**/*.zprofile": true,
+          "**/zprofile": true,
+          "**/*.zlogin": true,
+          "**/zlogin": true,
+          "**/*.zlogout": true,
+          "**/zlogout": true,
+          "**/*.zshenv": true,
+          "**/zshenv": true,
+          "**/*.zsh-theme": true
+        },
+        "shellcheck.ignoreFileSchemes": [
+          "git",
+          "gitfs",
+          "output"
+        ],
+        "terminal.integrated.shell.linux": "/bin/zsh",
+        "workbench.colorTheme": "Default Dark+",
+        "workbench.editor.highlightModifiedTabs": true,
+        "workbench.editor.tabSizing": "shrink",
+        "workbench.editor.wrapTabs": true,
+        "workbench.iconTheme": "vscode-icons"
+      }
+    },
+    "codespaces": {
+      "openFiles": [
+        "README.md",
+        "Dockerfile",
+        "files/mrtg.sh",
+      ]
+    }
+  },
+  // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+  // "remoteUser": "root"
+}

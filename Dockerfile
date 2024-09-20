@@ -29,7 +29,7 @@ RUN apk add --update --no-cache \
       rrdtool-cgi=~1.8.0-r6 \
       rrdtool=~1.8.0-r6 \
       shadow=~4.15.1-r0 \
-      tzdata=~2024a-r1 \
+      tzdata=~2024b-r0 \
     && apk upgrade --no-cache \
     && rm -rf /var/cache/apk/* \
     && mkdir -p /etc/mrtg/conf.d \
@@ -52,7 +52,7 @@ ARG VERSION
 ARG AUTHOR
 
 LABEL \
-      org.opencontainers.image.authors="$AUTHOR" \
+      org.opencontainers.image.authors="Frederico Freire Boaventura" \
       org.opencontainers.image.created=$BUILD_DATE \
       org.opencontainers.image.description="Docker instance to run MRTG - The Multi Router Traffic Grapher" \
       org.opencontainers.image.documentation="https://github.com/fboaventura/dckr-mrtg/README.md" \
@@ -61,5 +61,5 @@ LABEL \
       org.opencontainers.image.source="https://github.com/fboaventura/dckr-mrtg" \
       org.opencontainers.image.title="fboaventura/dckr-mrtg" \
       org.opencontainers.image.url="https://fboaventura.dev" \
-      org.opencontainers.image.vendor="$AUTHOR" \
+      org.opencontainers.image.vendor="Frederico Freire Boaventura" \
       org.opencontainers.image.version="$VERSION"

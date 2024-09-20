@@ -47,15 +47,35 @@ if [ -n "${HOSTS}" ]; then
         fi
         if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
           if [ -n "${CFGMAKEROPTIONS}" ]; then
+            # shellcheck disable=SC2086
+            echo /usr/bin/cfgmaker \
+                --ifref=name \
+                --global "WorkDir: ${WEBDIR}" \
+                --global "Options[_]: ${GRAPHOPTIONS}" \
+                --global "EnableIPv6: ${ENABLE_V6}" \
+                --global "LogFormat: rrdtool" \
+                ${CFGMAKEROPTIONS} \
+                --snmp-options=:"${PORT}"::::"${VERSION}" \
+                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
+            # shellcheck disable=SC2086
             /usr/bin/cfgmaker \
                 --ifref=name \
                 --global "WorkDir: ${WEBDIR}" \
                 --global "Options[_]: ${GRAPHOPTIONS}" \
                 --global "EnableIPv6: ${ENABLE_V6}" \
                 --global "LogFormat: rrdtool" \
+                ${CFGMAKEROPTIONS} \
                 --snmp-options=:"${PORT}"::::"${VERSION}" \
-                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}" "${CFGMAKEROPTIONS}"
+                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
           else
+            echo /usr/bin/cfgmaker \
+                --ifref=name \
+                --global "WorkDir: ${WEBDIR}" \
+                --global "Options[_]: ${GRAPHOPTIONS}" \
+                --global "EnableIPv6: ${ENABLE_V6}" \
+                --global "LogFormat: rrdtool" \
+                --snmp-options=:"${PORT}"::::"${VERSION}" \
+                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
             /usr/bin/cfgmaker \
                 --ifref=name \
                 --global "WorkDir: ${WEBDIR}" \
@@ -79,14 +99,16 @@ else
     fi
     if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
       if [ -n "${CFGMAKEROPTIONS}" ]; then
+        # shellcheck disable=SC2086
         /usr/bin/cfgmaker \
             --ifref=name \
             --global "WorkDir: ${WEBDIR}" \
             --global "Options[_]: ${GRAPHOPTIONS}" \
             --global "EnableIPv6: ${ENABLE_V6}" \
             --global "LogFormat: rrdtool" \
+            ${CFGMAKEROPTIONS} \
             --snmp-options=:"${PORT}"::::"${VERSION}" \
-            --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}" "${CFGMAKEROPTIONS}"
+            --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
       else
         /usr/bin/cfgmaker \
             --ifref=name \
@@ -118,8 +140,10 @@ if [ "${REGENERATEHTML}" == "yes" ]; then
      mv -f "${WEBDIR}/index.html" "${WEBDIR}/index.old"
   fi
   if [ -n "${INDEXMAKEROPTIONS}" ]; then
-    echo /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" "${INDEXMAKEROPTIONS}" --output="${WEBDIR}/index.html"
-    /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" "${INDEXMAKEROPTIONS}" --output="${WEBDIR}/index.html"
+    # shellcheck disable=SC2086
+    echo /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" ${INDEXMAKEROPTIONS} --output="${WEBDIR}/index.html"
+    # shellcheck disable=SC2086
+    /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" ${INDEXMAKEROPTIONS} --output="${WEBDIR}/index.html"
   else
     echo /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" --output="${WEBDIR}/index.html"
     /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" --output="${WEBDIR}/index.html"
