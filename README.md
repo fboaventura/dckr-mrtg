@@ -204,6 +204,9 @@ Once the instance is running, all you have to do is open a web browser and point
 
 ## ChangeLog
 
+### v2.5.7 - TBD
+- Work in progress
+
 ### v2.5.6 - 2024.09.20
 - Updated packages versions
 - Fixed `indexmaker` and `cfgmaker` options (Fixes #25)
