@@ -1,11 +1,10 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
+# Default configurations
 MIBSDIR=${MIBSDIR:-"/mrtg/mibs"}
 MRTGDIR=${MRTGDIR:-"/etc/mrtg"}
 WEBDIR=${WEBDIR:-"/mrtg/html"}
-
 MRTGCFG=${MRTGDIR}/mrtg.cfg
-
 CFGMAKEROPTIONS=${CFGMAKEROPTIONS:-""}
 ENABLE_V6=${ENABLE_V6:-"no"}
 GRAPHOPTIONS=${GRAPHOPTIONS:-"growright, bits"}
@@ -15,150 +14,144 @@ MRTG_COLUMNS=${MRTG_COLUMNS:-"2"}
 PATHPREFIX=${PATHPREFIX:-""}
 REGENERATEHTML=${REGENERATEHTML:-"yes"}
 
-usermod -u "${USERID}" lighttpd >/dev/null 2>&1
-groupmod -g "${GROUPID}" lighttpd >/dev/null 2>&1
+whoami() {
+  if [ "$(id -u)" -eq 0 ]; then
+    echo "Running as root"
+  else
+    echo "Running as non-root user"
+  fi
+}
+whoami
 
-[[ ! -d "${MRTGDIR}" ]] && mkdir -p "${MRTGDIR}"
-[[ ! -d "${WEBDIR}" ]] && mkdir -p "${WEBDIR}"
-[[ ! -d "${MIBSDIR}" ]] && mkdir -p "${MIBSDIR}"
-[[ ! -d "${WEBDIR}/icons" ]] && cp -R /mrtg/icons "${WEBDIR}"/
+trim() {
+  local var="$*"
+  # remove leading whitespace characters
+  var="${var#"${var%%[![:space:]]*}"}"
+  # remove trailing whitespace characters
+  var="${var%"${var##*[![:space:]]}"}"
+  printf '%s' "$var"
+}
 
-if [ -n "${PATHPREFIX}" ]; then
-    echo "IconDir: ${PATHPREFIX}/icons" > "${MRTGDIR}/conf.d/001-IconDir.cfg"
-else
-    echo "IconDir: /icons" > "${MRTGDIR}/conf.d/001-IconDir.cfg"
-fi
+# Helper Functions
+setup_directories() {
+  mkdir -p "${MRTGDIR}" "${WEBDIR}" "${MIBSDIR}"
+  if [[ -d "/mrtg/icons" ]]; then
+    echo "Copying icons from /mrtg/icons to ${WEBDIR}/icons"
+    if [[ ! -d "${WEBDIR}/icons" ]]; then
+      cp -Rv /mrtg/icons "${WEBDIR}/"
+    else
+      echo "Warning: Icon directory already exists. Skipping copy."
+    fi
+  else
+    echo "Warning: Source directory /mrtg/icons does not exist. Skipping icon copy."
+  fi
+}
 
-if [ -n "$(ls -A "${MIBSDIR}")" ]; then
-  echo "Loading MIBs from ${MIBSDIR}"
-  _MIBS_FILES=$(find "${MIBSDIR}" -type f -print0 | xargs -0 echo | tr ' ' ',')
-  echo "LoadMIBs: ${_MIBS_FILES}" > "${MRTGDIR}/conf.d/002-LoadMIBs.cfg"
-  echo "MIBS: ${_MIBS_FILES}"
-fi
+configure_icon_dir() {
+  local icon_dir="${PATHPREFIX:+${PATHPREFIX}/}icons"
+  echo "IconDir: ${icon_dir}" >"${MRTGDIR}/conf.d/001-IconDir.cfg"
+}
+
+load_mibs() {
+  if [ -n "$(ls -A "${MIBSDIR}")" ]; then
+    echo "Loading MIBs from ${MIBSDIR}"
+    local mibs_files
+    mibs_files=$(find "${MIBSDIR}" -type f -print0 | xargs -0 echo | tr ' ' ',')
+    echo "LoadMIBs: ${mibs_files}" >"${MRTGDIR}/conf.d/002-LoadMIBs.cfg"
+    echo "MIBS: ${mibs_files}"
+  fi
+}
+
+get_snmp_version() {
+  [[ "$1" -eq "2" || -z "$1" ]] && echo "2c" || echo "$1"
+}
+
+get_device_name() {
+  local community=$1 host=$2 port=$3 version=$4
+  local snmp_ver name
+  snmp_ver=$(get_snmp_version "${version}")
+  name=$(snmpwalk -Oqv -v"${snmp_ver}" -c "${community}" "${host}:${port}" .1.3.6.1.2.1.1.5)
+  trim "${name:-${host}}" | tr '[:upper:]' '[:lower:]' | tr '[:space:]' '_'
+}
+
+generate_cfg() {
+  local community=$1 host=$2 version=$3 port=$4 name=$5
+  /usr/bin/cfgmaker \
+    --ifref=name \
+    --global "WorkDir: ${WEBDIR}" \
+    --global "Options[_]: ${GRAPHOPTIONS}" \
+    --global "EnableIPv6: ${ENABLE_V6}" \
+    --global "LogFormat: rrdtool" \
+    ${CFGMAKEROPTIONS} \
+    --snmp-options=:"${port}"::::"${version}" \
+    --output="${MRTGDIR}/conf.d/${name}.cfg" "${community}@${host}"
+}
+
+process_host() {
+  local asset=$1
+  local community host version port name
+  read -r community host version port < <(echo "${asset//:/ }")
+  port=${port:-161}
+  version=$(get_snmp_version "${version}")
+  name=$(get_device_name "${community}" "${host}" "${port}" "${version}")
+
+  if [[ ! -f "${MRTGDIR}/conf.d/${name}.cfg" ]]; then
+    generate_cfg "${community}" "${host}" "${version}" "${port}" "${name}"
+  fi
+}
+
+run_mrtg() {
+  env LANG=C /usr/bin/mrtg "${MRTGCFG}" || true
+  sleep 2
+  env LANG=C /usr/bin/mrtg "${MRTGCFG}" || true
+  sleep 2
+  env LANG=C /usr/bin/mrtg "${MRTGCFG}" || true
+}
+
+regenerate_html() {
+  if [ "${REGENERATEHTML}" == "yes" ]; then
+    echo "Regenerating HTML"
+    [ -e "${WEBDIR}/index.html" ] && mv -f "${WEBDIR}/index.html" "${WEBDIR}/index.old"
+    /usr/bin/indexmaker "${MRTGCFG}" \
+      --columns="${MRTG_COLUMNS}" \
+      --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" \
+      --prefix="${PATHPREFIX}/" \
+      ${INDEXMAKEROPTIONS} \
+      --output="${WEBDIR}/index.html"
+    echo "HTML regenerated"
+  fi
+}
+
+start_services() {
+  /usr/bin/supervisord -c /etc/supervisord.conf -n
+}
+
+# Main Script Execution
+setup_directories
+configure_icon_dir
+load_mibs
 
 if [ -n "${HOSTS}" ]; then
-    hosts=$(echo "${HOSTS}" | tr ',;' ' ')
-    for asset in ${hosts}; do
-        read -r COMMUNITY HOST VERSION PORT < <(echo "${asset//:/ }")
-        if [[ "${VERSION}" -eq "2" || -z "${VERSION}" ]]; then _snmp_ver="2c"; else _snmp_ver=${VERSION}; fi
-        NAME=$(snmpwalk -Oqv -v"${_snmp_ver}" -c "${COMMUNITY}" "${HOST}":"${PORT:-"161"}" .1.3.6.1.2.1.1.5)
-        if [ -z "${NAME}" ]; then
-            NAME="${HOST}"
-        fi
-        if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
-          if [ -n "${CFGMAKEROPTIONS}" ]; then
-            # shellcheck disable=SC2086
-            echo /usr/bin/cfgmaker \
-                --ifref=name \
-                --global "WorkDir: ${WEBDIR}" \
-                --global "Options[_]: ${GRAPHOPTIONS}" \
-                --global "EnableIPv6: ${ENABLE_V6}" \
-                --global "LogFormat: rrdtool" \
-                ${CFGMAKEROPTIONS} \
-                --snmp-options=:"${PORT}"::::"${VERSION}" \
-                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
-            # shellcheck disable=SC2086
-            /usr/bin/cfgmaker \
-                --ifref=name \
-                --global "WorkDir: ${WEBDIR}" \
-                --global "Options[_]: ${GRAPHOPTIONS}" \
-                --global "EnableIPv6: ${ENABLE_V6}" \
-                --global "LogFormat: rrdtool" \
-                ${CFGMAKEROPTIONS} \
-                --snmp-options=:"${PORT}"::::"${VERSION}" \
-                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
-          else
-            echo /usr/bin/cfgmaker \
-                --ifref=name \
-                --global "WorkDir: ${WEBDIR}" \
-                --global "Options[_]: ${GRAPHOPTIONS}" \
-                --global "EnableIPv6: ${ENABLE_V6}" \
-                --global "LogFormat: rrdtool" \
-                --snmp-options=:"${PORT}"::::"${VERSION}" \
-                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
-            /usr/bin/cfgmaker \
-                --ifref=name \
-                --global "WorkDir: ${WEBDIR}" \
-                --global "Options[_]: ${GRAPHOPTIONS}" \
-                --global "EnableIPv6: ${ENABLE_V6}" \
-                --global "LogFormat: rrdtool" \
-                --snmp-options=:"${PORT}"::::"${VERSION}" \
-                --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
-          fi
-        fi
-    done
+  for asset in $(echo "${HOSTS}" | tr ',;' ' '); do
+    process_host "${asset}"
+  done
 else
-    COMMUNITY=${1:-"public"}
-    HOST=${2:-"localhost"}
-    VERSION=${3:-"2"}
-    PORT=${4:-"161"}
-    if [[ "${VERSION}" -eq "2" || -z "${VERSION}" ]]; then _snmp_ver="2c"; else _snmp_ver=${VERSION}; fi
-    NAME=$(snmpwalk -Oqv -v"${_snmp_ver}" -c "${COMMUNITY}" "${HOST}":"${PORT}" .1.3.6.1.2.1.1.5 | tr '[:upper:]' '[:lower:]' | tr '[:space:]' '_')
-    if [ -z "${NAME}" ]; then
-        NAME="${HOST}"
-    fi
-    if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
-      if [ -n "${CFGMAKEROPTIONS}" ]; then
-        # shellcheck disable=SC2086
-        /usr/bin/cfgmaker \
-            --ifref=name \
-            --global "WorkDir: ${WEBDIR}" \
-            --global "Options[_]: ${GRAPHOPTIONS}" \
-            --global "EnableIPv6: ${ENABLE_V6}" \
-            --global "LogFormat: rrdtool" \
-            ${CFGMAKEROPTIONS} \
-            --snmp-options=:"${PORT}"::::"${VERSION}" \
-            --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
-      else
-        /usr/bin/cfgmaker \
-            --ifref=name \
-            --global "WorkDir: ${WEBDIR}" \
-            --global "Options[_]: ${GRAPHOPTIONS}" \
-            --global "EnableIPv6: ${ENABLE_V6}" \
-            --global "LogFormat: rrdtool" \
-            --snmp-options=:"${PORT}"::::"${VERSION}" \
-            --output="${MRTGDIR}/conf.d/${NAME}.cfg" "${COMMUNITY}@${HOST}"
-      fi
-    fi
+  COMMUNITY=${1:-"public"}
+  HOST=${2:-"localhost"}
+  VERSION=${3:-"2"}
+  PORT=${4:-"161"}
+  NAME=$(get_device_name "${COMMUNITY}" "${HOST}" "${PORT}" "${VERSION}")
+
+  if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
+    generate_cfg "${COMMUNITY}" "${HOST}" "${VERSION}" "${PORT}" "${NAME}"
+  fi
 fi
 
-# Force font cache clean-up to avoid fontconfig errors
+# Clean font cache
 chmod 755 /var/cache/fontconfig
 rm -rf /var/cache/fontconfig/*
 fc-cache -f
 
-env LANG=C /usr/bin/mrtg "${MRTGCFG}"
-sleep 2
-env LANG=C /usr/bin/mrtg "${MRTGCFG}"
-sleep 2
-env LANG=C /usr/bin/mrtg "${MRTGCFG}"
-
-# Only run indexmaker when regeneration is wanted.
-if [ "${REGENERATEHTML}" == "yes" ]; then
-  echo "Regenerating HTML"
-  if [ -e "${WEBDIR}/index.html" ]; then
-     mv -f "${WEBDIR}/index.html" "${WEBDIR}/index.old"
-  fi
-  if [ -n "${INDEXMAKEROPTIONS}" ]; then
-    # shellcheck disable=SC2086
-    echo /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" ${INDEXMAKEROPTIONS} --output="${WEBDIR}/index.html"
-    # shellcheck disable=SC2086
-    /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" ${INDEXMAKEROPTIONS} --output="${WEBDIR}/index.html"
-  else
-    echo /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" --output="${WEBDIR}/index.html"
-    /usr/bin/indexmaker "${MRTGCFG}" --columns="${MRTG_COLUMNS}" --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" --prefix="${PATHPREFIX}/" --output="${WEBDIR}/index.html"
-  fi
-  echo "HTML regenerated"
-fi
-
-
-chown -R lighttpd:lighttpd "${WEBDIR}"
-
-/usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf -D &
-HTTPID=$!
-
-/usr/sbin/crond -f -L /proc/self/fd/1 -l debug &
-CRONDID=$!
-
-trap "kill ${HTTPID} ${CRONDID}" SIGINT SIGHUP SIGTERM SIGQUIT EXIT
-wait
+run_mrtg
+regenerate_html
+start_services

@@ -6,4 +6,4 @@
 0       3       *       *       6       run-parts /etc/periodic/weekly
 0       5       1       *       *       run-parts /etc/periodic/monthly
 
-*/5     *       *       *       *       /usr/bin/mrtg /etc/mrtg/mrtg.cfg || true
+*/2     *       *       *       *       /usr/bin/mrtg /etc/mrtg/mrtg.cfg || true

@@ -1,7 +1,9 @@
-version: "3.5"
+---
 services:
   mrtg:
     build: .
+    image: dckr-mrtg:2.5.7
+    container_name: mrtg
     hostname: mrtg
     restart: always
     ports:
@@ -10,11 +12,12 @@ services:
       - "./conf.d:/etc/mrtg/conf.d"
       - "./html:/mrtg/html"
     environment:
-        TZ: "Brazil/East"
-        HOSTS: 'public:192.168.0.123'
-        USERID: 100
-        GROUPID: 101
-        REGENERATEHTML: "yes"
-        INDEXMAKEROPTIONS: ""
+      TZ: "Brazil/East"
+      HOSTS: "public:192.168.0.123"
+      USERID: 100
+      GROUPID: 101
+      REGENERATEHTML: "yes"
+      INDEXMAKEROPTIONS: ""
+      MRTG_COLUMNS: 2
     tmpfs:
       - "/run"

@@ -48,7 +48,6 @@ if [ "${SOURCE_BRANCH}" == "master" ]; then
       --build-arg BUILD_DATE="${BUILD_DATE}" \
       --build-arg VERSION="${VERSION}" \
       --build-arg VCS_REF="${VCS_REF}" \
-      --tag "${DOCKER_REPO}:${IMG_VERSION}-${pltf[1]}" \
-      --tag "${IMAGE_NAME}" .
+      --tag "${DOCKER_REPO}:${IMG_VERSION}-${pltf[1]}" .
   done
 fi
