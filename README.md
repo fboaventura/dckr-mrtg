@@ -27,44 +27,45 @@ This image is built for all the architectures supported by Alpine image. Althoug
 ## Table of Contents
 
 <!--ts-->
-* [fboaventura/dckr-mrtg](#fboaventuradckr-mrtg)
-   * [Table of Contents](#table-of-contents)
-   * [Versioning](#versioning)
-   * [MIBs A.K.A. Good to know information](#mibs-aka-good-to-know-information)
-   * [How to use](#how-to-use)
-      * [Environment](#environment)
-      * [Persistence](#persistence)
-      * [From the command line:](#from-the-command-line)
-      * [docker-compose](#docker-compose)
-   * [ChangeLog](#changelog)
-      * [v2.5.6 - 2024.09.20](#v256---20240920)
-      * [v2.5.5 - 2024.08.22](#v255---20240822)
-      * [v2.5.4 - 2024.07.11](#v254---20240711)
-      * [v2.5.3 - 2023.11.25](#v253---20231125)
-      * [v2.5.2 - 2023.08.29](#v252---20230829)
-      * [v2.5.1 - 2023.01.15](#v251---20230115)
-      * [v2.5.0 - 2023.01.15](#v250---20230115)
-      * [v2.4.0 - 2022.08.26](#v240---20220826)
-      * [v2.3.2 - 2022.08.25](#v232---20220825)
-      * [v2.3.1 - 2021.09.03](#v231---20210903)
-      * [v2.3.0 - 2021.06](#v230---202106)
-      * [v2.2.0 - 2020.04](#v220---202004)
-      * [v2.1.1 - 2019.10](#v211---201910)
-      * [v1.3 - 2019.08](#v13---201908)
-      * [v1.2 - 2019.05](#v12---201905)
-      * [v1.1 - 2018.10](#v11---201810)
-      * [v1.0.0 - 2017.08](#v100---201708)
-   * [License](#license)
+- [fboaventura/dckr-mrtg](#fboaventuradckr-mrtg)
+  - [Table of Contents](#table-of-contents)
+  - [Versioning](#versioning)
+  - [MIBs A.K.A. Good to know information](#mibs-aka-good-to-know-information)
+  - [How to use](#how-to-use)
+    - [Environment](#environment)
+    - [Persistence](#persistence)
+    - [From the command line:](#from-the-command-line)
+    - [docker-compose](#docker-compose)
+  - [ChangeLog](#changelog)
+    - [v2.5.7 - 2025.04.07](#v257---20250407)
+    - [v2.5.6 - 2024.09.20](#v256---20240920)
+    - [v2.5.5 - 2024.08.22](#v255---20240822)
+    - [v2.5.4 - 2024.07.11](#v254---20240711)
+    - [v2.5.3 - 2023.11.25](#v253---20231125)
+    - [v2.5.2 - 2023.08.29](#v252---20230829)
+    - [v2.5.1 - 2023.01.15](#v251---20230115)
+    - [v2.5.0 - 2023.01.15](#v250---20230115)
+    - [v2.4.0 - 2022.08.26](#v240---20220826)
+    - [v2.3.2 - 2022.08.25](#v232---20220825)
+    - [v2.3.1 - 2021.09.03](#v231---20210903)
+    - [v2.3.0 - 2021.06](#v230---202106)
+    - [v2.2.0 - 2020.04](#v220---202004)
+    - [v2.1.1 - 2019.10](#v211---201910)
+    - [v1.3 - 2019.08](#v13---201908)
+    - [v1.2 - 2019.05](#v12---201905)
+    - [v1.1 - 2018.10](#v11---201810)
+    - [v1.0.0 - 2017.08](#v100---201708)
+  - [License](#license)
 <!--te-->
 
 ## Versioning
 
-Until version `2.2.0`, I used [NGINX], and all the HTML files were statically built by [MRTG].  
-From `2.3.0` onwards, I've implemented the support for [rrdtool](https://oss.oetiker.ch/rrdtool/) and 
+Until version `2.2.0`, I used [NGINX], and all the HTML files were statically built by [MRTG].
+From `2.3.0` onwards, I've implemented the support for [rrdtool](https://oss.oetiker.ch/rrdtool/) and
 replaced NGINX with [LIGHTTPD], since I needed the support to run CGI scripts.
 
-From version `2.3.0` the `WEBDIR` went from `/usr/share/nginx/html` to `/mrtg/html`. 
-So please, check all your configuration files if you are getting some path-related error on the graphics.  
+From version `2.3.0` the `WEBDIR` went from `/usr/share/nginx/html` to `/mrtg/html`.
+So please, check all your configuration files if you are getting some path-related error on the graphics.
 It's also possible to pass the environment variable `WEBDIR` on the `docker-compose.yml` or command line (`-e`).
 
 Starting on version `2.5.5` the development will be made using branches. The `master` will be the stable version, and the development will be made on the versioned branches.  The auto-build will create images with `-dev` suffix and pure `dev`, instead of `latest`, for the development branches and these images will be deleted as soon as new stable release is made.
@@ -73,7 +74,7 @@ Starting on version `2.5.5` the development will be made using branches. The `ma
 
 MRTG uses SNMP to monitor the devices. The SNMP protocol look up for an OID (Object Identifier) in the device and return the value of that OID.
 
-OID is the Object Identifier. It is a unique identifier for a piece of data in the MIB. The OID is a sequence of numbers separated by periods. For example, the OID for the device's name is `.1.3.6.1.2.1.1.5`. 
+OID is the Object Identifier. It is a unique identifier for a piece of data in the MIB. The OID is a sequence of numbers separated by periods. For example, the OID for the device's name is `.1.3.6.1.2.1.1.5`.
 
 To make life easier, SNMP can use a MIB (Management Information Base) file. The MIB file is a text file that describes the data that can be retrieved from a device. For example, using `SNMPv2-MIB` file we can reach the device's name using `sysName.0` instead of the OID.
 
@@ -83,14 +84,14 @@ This container adds the `net-snmp-libs` packages that contains [these MIB files]
 
 ## How to use
 
-This instance is published at [Docker Hub], and all 
+This instance is published at [Docker Hub], and all
 you need to run is:
 
 ```bash
 $ docker run -d -p 8880:80 -e "HOSTS='public:localhost:2,community:ipaddress'" fboaventura/dckr-mrtg:latest
 ```
 
-You can, of course, pass some custom values to make it more prone to your usage.  The variables and 
+You can, of course, pass some custom values to make it more prone to your usage.  The variables and
 their defaults are:
 
 ### Environment
@@ -120,7 +121,7 @@ The variable `GRAPHOPTIONS` (default: "growright, bits") will configure the grap
 The variable `GROUPID` (default: 101) defines the groupid for the lighttpd user.
  Normally this value should be set to the same value as `USERID`, but other values can be used depending on your needs.
 
-The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The format to be used 
+The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The format to be used
 is `community:host[:version[:port]],community:host[:version:[port]],...`
 
   Where:
@@ -136,7 +137,7 @@ The variable `MIBSDIR` (default: "/mrtg/mibs") is the path where the custom MIB 
 
 The variable `MRTG_COLUMNS` (default: 2) defines the number of columns in the index.html file.  This is useful if you have a large number of hosts and want to display them in multiple columns.
 
-The variable `PATHPREFIX` (default: empty string) is the path passed to `indexmaker` to prefix URLs to `rrdviewer` or 
+The variable `PATHPREFIX` (default: empty string) is the path passed to `indexmaker` to prefix URLs to `rrdviewer` or
 any images.
  The format must **NOT** include a trailing slash.  For example, "/mrtg"
  Used with a reverse proxy, this allows mrtg to exist at a subpath rather than the root.
@@ -160,7 +161,7 @@ The container will create and use the following directories to store the data an
 * `/mrtg/mibs`: where the custom MIB files can be stored
 * `/mrtg/fonts`: where custom fonts can be stored
 
-If you plan on keeping this instance running as your MRTG service, you may pass volumes 
+If you plan on keeping this instance running as your MRTG service, you may pass volumes
 to be used to save the information produced by MRTG.  To achieve this:
 
 ### From the command line:
@@ -204,8 +205,11 @@ Once the instance is running, all you have to do is open a web browser and point
 
 ## ChangeLog
 
-### v2.5.7 - TBD
-- Work in progress
+### v2.5.7 - 2025.04.07
+- Updated packages versions
+- Refactored the `mrtg.sh` starting script
+- Added support for `supervisord` to manage the processes (Fix #32)
+- Added support for [Home Assistant] add-in (Fix #29)
 
 ### v2.5.6 - 2024.09.20
 - Updated packages versions
@@ -314,3 +318,4 @@ Once the instance is running, all you have to do is open a web browser and point
 [NGINX]: https://nginx.org
 [LIGHTTPD]: http://www.lighttpd.net/
 [Docker Hub]: https://hub.docker.com/r/fboaventura/dckr-mrtg/
+[Home Assistant]: https://www.home-assistant.io/
