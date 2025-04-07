@@ -1,0 +1,22 @@
+---
+name: "Docker MRTG"
+version: "2.5.7"
+slug: "mrtg"
+description: "Dockerized MRTG Graph Generator for SNMP Monitoring"
+startup: services
+boot: auto
+init: false
+host_network: true
+homeassistant_api: false
+options: {}
+schema: {}
+arch:
+  - amd64
+  - arm64v8
+  - arm32v6
+  - arm32v7
+  - i386
+  - ppc64le
+  - s390x
+  - riscv64
+image: "fboaventura/dckr-mrtg:v2.5.7"
