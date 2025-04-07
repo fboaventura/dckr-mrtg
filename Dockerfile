@@ -15,23 +15,26 @@ ENV USERID="100"
 ENV WEBDIR="/mrtg/html"
 
 RUN apk add --update --no-cache \
-      bash=~5.2.26-r0 \
-      dcron=~4.5-r9 \
-      font-space-mono-nerd=~3.2.1-r0 \
-      libsmi=~0.5.0-r3 \
-      lighttpd=~1.4.76-r0 \
-      mrtg=~2.17.10-r1 \
-      net-snmp-libs=~5.9.4-r0 \
-      net-snmp-tools=~5.9.4-r0 \
-      perl-cgi=~4.64-r0 \
-      perl-dev=~5.38.2-r0 \
-      perl-rrd=~1.8.0-r6 \
-      rrdtool-cgi=~1.8.0-r6 \
-      rrdtool=~1.8.0-r6 \
-      shadow=~4.15.1-r0 \
-      tzdata=~2024b-r0 \
+    bash=~5.2.37-r0 \
+    dcron=~4.6-r0 \
+    font-space-mono-nerd=~3.2.1-r0 \
+    libsmi=~0.5.0-r4 \
+    lighttpd=~1.4.76-r0 \
+    mrtg=~2.17.10-r1 \
+    net-snmp-libs=~5.9.4-r1 \
+    net-snmp-tools=~5.9.4-r1 \
+    perl-cgi=~4.67-r0 \
+    perl-dev=~5.40.1-r0 \
+    perl-rrd=~1.9.0-r0 \
+    rrdtool-cgi=~1.9.0-r0 \
+    rrdtool=~1.9.0-r0 \
+    shadow=~4.16.0-r1 \
+    supervisor=~4.2.5-r5 \
+    supervisor-pyc=~4.2.5-r5 \
+    tzdata=~2025b-r0 \
     && apk upgrade --no-cache \
     && rm -rf /var/cache/apk/* \
+    && mkdir -p /etc/supervisor.d /var/log/supervisor/ \
     && mkdir -p /etc/mrtg/conf.d \
     && mkdir -p /mrtg/cgi-bin /mrtg/html /mrtg/fonts /mrtg/mibs
 
@@ -42,6 +45,8 @@ COPY files/lighttpd.conf /etc/lighttpd/lighttpd.conf
 COPY files/mrtg.cfg /etc/mrtg/mrtg.cfg
 COPY files/opensans.ttf /mrtg/fonts/opensans.ttf
 COPY files/icons /mrtg/icons
+COPY files/sv-crond.ini /etc/supervisor.d/crond.ini
+COPY files/sv-lighttpd.ini /etc/supervisor.d/lighttpd.ini
 
 CMD ["/usr/sbin/mrtg.sh"]
 
@@ -52,14 +57,14 @@ ARG VERSION
 ARG AUTHOR
 
 LABEL \
-      org.opencontainers.image.authors="Frederico Freire Boaventura" \
-      org.opencontainers.image.created=$BUILD_DATE \
-      org.opencontainers.image.description="Docker instance to run MRTG - The Multi Router Traffic Grapher" \
-      org.opencontainers.image.documentation="https://github.com/fboaventura/dckr-mrtg/README.md" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.revision=$VCS_REF \
-      org.opencontainers.image.source="https://github.com/fboaventura/dckr-mrtg" \
-      org.opencontainers.image.title="fboaventura/dckr-mrtg" \
-      org.opencontainers.image.url="https://fboaventura.dev" \
-      org.opencontainers.image.vendor="Frederico Freire Boaventura" \
-      org.opencontainers.image.version="$VERSION"
+    org.opencontainers.image.authors="Frederico Freire Boaventura" \
+    org.opencontainers.image.created=$BUILD_DATE \
+    org.opencontainers.image.description="Docker instance to run MRTG - The Multi Router Traffic Grapher" \
+    org.opencontainers.image.documentation="https://github.com/fboaventura/dckr-mrtg/README.md" \
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.revision=$VCS_REF \
+    org.opencontainers.image.source="https://github.com/fboaventura/dckr-mrtg" \
+    org.opencontainers.image.title="fboaventura/dckr-mrtg" \
+    org.opencontainers.image.url="https://fboaventura.dev" \
+    org.opencontainers.image.vendor="Frederico Freire Boaventura" \
+    org.opencontainers.image.version="$VERSION"
