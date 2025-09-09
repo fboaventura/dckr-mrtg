@@ -205,14 +205,18 @@ Once the instance is running, all you have to do is open a web browser and point
 
 ## ChangeLog
 
+### v2.5.8 - 2025.09.08
+- Fix the error reported in issue #33
+- Updated package versions
+
 ### v2.5.7 - 2025.04.07
-- Updated packages versions
+- Updated package versions
 - Refactored the `mrtg.sh` starting script
 - Added support for `supervisord` to manage the processes (Fix #32)
 - Added support for [Home Assistant] add-in (Fix #29)
 
 ### v2.5.6 - 2024.09.20
-- Updated packages versions
+- Updated package versions
 - Fixed `indexmaker` and `cfgmaker` options (Fixes #25)
 - Added support for [devcontainers](https://containers.dev/)
 - Added `provenance` and `SBOM` attestations to the builds
@@ -223,22 +227,22 @@ Once the instance is running, all you have to do is open a web browser and point
 - Added the `MIBSDIR` environment variable to set the path to the MIB files
 - Added a Table of Contents to the `README.md` file
 - Added more platforms to the build matrix
-- Updated the `14all.cgi` script to match latest Perl coding standards
+- Updated the `14all.cgi` script to match the latest Perl coding standards
 - Updated the `README.md` file to include information about MIBs and fix typos (Thanks @mlazarov)
 - Fixed some of the warnings in the `14all.cgi` script (#21 and #23)
 - Fixed the `lighttpd` configuration to remove deprecated options
 
 ### v2.5.4 - 2024.07.11
-- Updated packages versions
+- Updated package versions
 - Updated the `14all.cgi` script, added option to export the data in CSV format
 - Added the `MRTG_COLUMNS` environment variable to set the number of columns in the index.html file
 
 ### v2.5.3 - 2023.11.25
 - Force font cache clean-up to avoid fontconfig errors
-- Fix security concerts in Dockerfile
+- Fix security concerns in Dockerfile
 - Fixed errors with lighttpd configuration
 - Added fixed versions to packages
-- Added command to update alpine packages
+- Added command to update Alpine packages
 
 ### v2.5.2 - 2023.08.29
 - Updated Alpine version to reduce vulnerabilities
@@ -250,10 +254,10 @@ Once the instance is running, all you have to do is open a web browser and point
 
 ### v2.5.0 - 2023.01.15
 - Added the ability to set `USERID` and `GROUPID` for volume mapping scenarios (@TweakM)
-- Added the option to not regenerate the index.html file, applicable when custom/manual changes to this file have been made  (@TweakM)
+- Added the option not to regenerate the index.html file, applicable when custom/manual changes to this file have been made  (@TweakM)
 - Added the ability to specify additional options for `indexmaker` (allowing more customizations)  (@TweakM)
 - Updated documentation
-- Fixed typo's
+- Fixed typos
 
 ### v2.4.0 - 2022.08.26
 
