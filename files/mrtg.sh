@@ -63,7 +63,7 @@ load_mibs() {
 }
 
 get_snmp_version() {
-  [[ "$1" -eq "2" || -z "$1" ]] && echo "2c" || echo "$1"
+  [[ "$1" == "2" || -z "$1" ]] && echo "2c" || echo "$1"
 }
 
 get_device_name() {
@@ -83,7 +83,7 @@ generate_cfg() {
     --global "EnableIPv6: ${ENABLE_V6}" \
     --global "LogFormat: rrdtool" \
     ${CFGMAKEROPTIONS} \
-    --snmp-options=:"${port}"::::"${version}" \
+    --snmp-options=:"${port}"::::"${version//c/}" \
     --output="${MRTGDIR}/conf.d/${name}.cfg" "${community}@${host}"
 }
 
