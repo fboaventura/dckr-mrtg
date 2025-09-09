@@ -1,22 +1,28 @@
 ---
 name: "Docker MRTG"
-version: "2.5.7"
-slug: "mrtg"
+version: "v2.5.7"
+slug: "ffb-dckr-mrtg"
 description: "Dockerized MRTG Graph Generator for SNMP Monitoring"
 startup: services
 boot: auto
 init: false
 host_network: true
 homeassistant_api: false
-options: {}
+url: https://github.com/fboaventura/dckr-mrtg
+ports:
+  - 80/tcp:8082
+ports_description:
+  - 80: Web interface for MRTG
+map:
+  - data: /mrtg
+  - addon_config: /etc/mrtg/conf.d
+options:
+  -
 schema: {}
 arch:
   - amd64
-  - arm64v8
-  - arm32v6
-  - arm32v7
+  - aarch64
+  - armhf
+  - armv7
   - i386
-  - ppc64le
-  - s390x
-  - riscv64
-image: "fboaventura/dckr-mrtg:v2.5.7"
+image: "fboaventura/dckr-mrtg"
