@@ -15,23 +15,23 @@ ENV USERID="100"
 ENV WEBDIR="/mrtg/html"
 
 RUN apk add --update --no-cache \
-    bash=~5.2.37-r0 \
-    dcron=~4.6-r0 \
-    font-space-mono-nerd=~3.2.1-r0 \
-    libsmi=~0.5.0-r4 \
-    lighttpd=~1.4.79-r0 \
-    mrtg=~2.17.10-r1 \
-    net-snmp-libs=~5.9.4-r1 \
-    net-snmp-tools=~5.9.4-r1 \
-    perl-cgi=~4.68-r0 \
-    perl-dev=~5.40.3-r0 \
-    perl-rrd=~1.9.0-r4 \
-    rrdtool-cgi=~1.9.0-r4 \
-    rrdtool=~1.9.0-r4 \
-    shadow=~4.17.3-r0 \
-    supervisor=~4.2.5-r5 \
-    supervisor-pyc=~4.2.5-r5 \
-    tzdata=~2025b-r0 \
+    bash \
+    dcron \
+    font-space-mono-nerd \
+    libsmi \
+    lighttpd \
+    mrtg \
+    net-snmp-libs \
+    net-snmp-tools \
+    perl-cgi \
+    perl-dev \
+    perl-rrd \
+    rrdtool-cgi \
+    rrdtool \
+    shadow \
+    supervisor \
+    supervisor-pyc \
+    tzdata \
     && apk upgrade --no-cache \
     && rm -rf /var/cache/apk/* \
     && mkdir -p /etc/supervisor.d /var/log/supervisor/ \
