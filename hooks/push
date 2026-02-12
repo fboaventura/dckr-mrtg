@@ -20,22 +20,21 @@ if [ "${SOURCE_BRANCH}" == "master" ]; then
 else
   export IMG_VERSION="v${VERSION}-dev"
   export LATEST="dev"
+  export PLATFORMS="linux/arm64/v8,linux/amd64,linux/arm/v7"
 fi
 
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
-# shellcheck disable=SC2086
-for _tag in ${IMG_VERSION} ${LATEST}
-do
-  docker buildx build \
-    --push \
-    --provenance=true --sbom=true \
-    --platform "${PLATFORMS}" \
-    --build-arg BUILD_DATE="${BUILD_DATE}" \
-    --build-arg VERSION="${VERSION}" \
-    --build-arg VCS_REF="${VCS_REF}" \
-    --tag "${DOCKER_REPO}:${_tag}" \
-    --tag "${IMAGE_NAME}" .
-done
+# Build and push with both version and latest tags
+docker buildx build \
+  --push \
+  --provenance=true --sbom=true \
+  --platform "${PLATFORMS}" \
+  --build-arg BUILD_DATE="${BUILD_DATE}" \
+  --build-arg VERSION="${VERSION}" \
+  --build-arg VCS_REF="${VCS_REF}" \
+  --tag "${DOCKER_REPO}:${IMG_VERSION}" \
+  --tag "${DOCKER_REPO}:${LATEST}" \
+  --tag "${IMAGE_NAME}" .
 
 if [ "${SOURCE_BRANCH}" == "master" ]; then
   for platform in ${PLATFORMS_VERSIONS//,/ }
