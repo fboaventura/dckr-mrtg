@@ -10,6 +10,7 @@ ENABLE_V6=${ENABLE_V6:-"no"}
 GRAPHOPTIONS=${GRAPHOPTIONS:-"growright, bits"}
 HOSTS=${HOSTS:-""}
 INDEXMAKEROPTIONS=${INDEXMAKEROPTIONS:-""}
+MAX_PARALLEL_HOSTS=${MAX_PARALLEL_HOSTS:-5}
 MRTG_COLUMNS=${MRTG_COLUMNS:-"2"}
 PATHPREFIX=${PATHPREFIX:-""}
 REGENERATEHTML=${REGENERATEHTML:-"yes"}
@@ -114,6 +115,33 @@ process_host() {
   fi
 }
 
+process_hosts_parallel() {
+  local max_parallel=${MAX_PARALLEL_HOSTS:-5}
+  local pids=()
+  local count=0
+
+  for asset in $(echo "${HOSTS}" | tr ',;' ' '); do
+    # Run process_host in background
+    process_host "${asset}" &
+    pids+=($!)
+    ((count++))
+
+    # If we've reached max parallel processes, wait for one to finish
+    if [ ${count} -ge ${max_parallel} ]; then
+      # Wait for any job to complete
+      wait -n 2>/dev/null || true
+      ((count--))
+    fi
+  done
+
+  # Wait for all remaining background jobs to complete
+  for pid in "${pids[@]}"; do
+    wait "${pid}" 2>/dev/null || true
+  done
+
+  echo "All hosts processed"
+}
+
 run_mrtg() {
   env LANG=C /usr/bin/mrtg "${MRTGCFG}" || true
   sleep 2
@@ -146,9 +174,8 @@ configure_icon_dir
 load_mibs
 
 if [ -n "${HOSTS}" ]; then
-  for asset in $(echo "${HOSTS}" | tr ',;' ' '); do
-    process_host "${asset}"
-  done
+  echo "Processing hosts in parallel (max ${MAX_PARALLEL_HOSTS} concurrent)"
+  process_hosts_parallel
 else
   COMMUNITY=${1:-"public"}
   HOST=${2:-"localhost"}
