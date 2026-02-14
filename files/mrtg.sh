@@ -10,7 +10,6 @@ ENABLE_V6=${ENABLE_V6:-"no"}
 GRAPHOPTIONS=${GRAPHOPTIONS:-"growright, bits"}
 HOSTS=${HOSTS:-""}
 INDEXMAKEROPTIONS=${INDEXMAKEROPTIONS:-""}
-MAX_PARALLEL_HOSTS=${MAX_PARALLEL_HOSTS:-5}
 MRTG_COLUMNS=${MRTG_COLUMNS:-"2"}
 PATHPREFIX=${PATHPREFIX:-""}
 REGENERATEHTML=${REGENERATEHTML:-"yes"}
@@ -102,80 +101,17 @@ check_host_alive() {
 process_host() {
   local asset=$1
   local community host version port name
-
-  # Disable exit on error for this function (inherited from -e flag)
-  set +e
-
   read -r community host version port < <(echo "${asset//:/ }")
   port=${port:-161}
-
-  echo "Processing host: ${asset}"
-
   if ! check_host_alive "${host}" "${port}"; then
-    echo "Skipping host ${host}:${port} - not reachable"
-    return 0
+    return
   fi
-
   version=$(get_snmp_version "${version}")
   name=$(get_device_name "${community}" "${host}" "${port}" "${version}")
 
-  echo "Device name resolved: ${name}"
-
   if [[ ! -f "${MRTGDIR}/conf.d/${name}.cfg" ]]; then
-    echo "Generating config for ${name}"
     generate_cfg "${community}" "${host}" "${version}" "${port}" "${name}"
-    echo "Config generated for ${name}"
-  else
-    echo "Config already exists for ${name}"
   fi
-
-  # Re-enable exit on error
-  set -e
-  return 0
-}
-
-process_hosts_parallel() {
-  local max_parallel=${MAX_PARALLEL_HOSTS:-5}
-  local pids=()
-  local count=0
-  local total=0
-
-  echo "Starting parallel host processing..."
-
-  for asset in $(echo "${HOSTS}" | tr ',;' ' '); do
-    # Run process_host in background with set +e to prevent exit on error
-    (
-      set +e
-      process_host "${asset}"
-      exit 0
-    ) &
-    pids+=($!)
-    ((total++))
-    ((count++))
-
-    # If we've reached max parallel processes, wait for one to finish
-    if [ ${count} -ge ${max_parallel} ]; then
-      # Wait for any job to complete
-      if wait -n 2>/dev/null; then
-        ((count--))
-      else
-        # wait -n not supported, fall back to waiting for all
-        for pid in "${pids[@]}"; do
-          wait "${pid}" 2>/dev/null || true
-        done
-        count=0
-        pids=()
-      fi
-    fi
-  done
-
-  # Wait for all remaining background jobs to complete
-  echo "Waiting for remaining ${count} background jobs to complete..."
-  for pid in "${pids[@]}"; do
-    wait "${pid}" 2>/dev/null || true
-  done
-
-  echo "All ${total} hosts processed"
 }
 
 run_mrtg() {
@@ -210,8 +146,9 @@ configure_icon_dir
 load_mibs
 
 if [ -n "${HOSTS}" ]; then
-  echo "Processing hosts in parallel (max ${MAX_PARALLEL_HOSTS} concurrent)"
-  process_hosts_parallel
+  for asset in $(echo "${HOSTS}" | tr ',;' ' '); do
+    process_host "${asset}"
+  done
 else
   COMMUNITY=${1:-"public"}
   HOST=${2:-"localhost"}
