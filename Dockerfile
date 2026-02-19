@@ -23,6 +23,7 @@ RUN apk add --update --no-cache \
     mrtg \
     net-snmp-libs \
     net-snmp-tools \
+    netcat-openbsd \
     perl-cgi \
     perl-dev \
     perl-rrd \

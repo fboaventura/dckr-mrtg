@@ -87,11 +87,25 @@ generate_cfg() {
     --output="${MRTGDIR}/conf.d/${name}.cfg" "${community}@${host}"
 }
 
+check_host_alive() {
+  local host=$1
+  local port=$2
+
+  if ! nc -vuz "${host}" "${port}" 2>/dev/null; then
+    echo "Host ${host}:${port} is not reachable. Skipping."
+    return 1
+  fi
+  return 0
+}
+
 process_host() {
   local asset=$1
   local community host version port name
   read -r community host version port < <(echo "${asset//:/ }")
   port=${port:-161}
+  if ! check_host_alive "${host}" "${port}"; then
+    return
+  fi
   version=$(get_snmp_version "${version}")
   name=$(get_device_name "${community}" "${host}" "${port}" "${version}")
 
@@ -140,6 +154,10 @@ else
   HOST=${2:-"localhost"}
   VERSION=${3:-"2"}
   PORT=${4:-"161"}
+  if ! check_host_alive "${HOST}" "${PORT}"; then
+    echo "Host ${HOST}:${PORT} is not reachable. Exiting."
+    exit 1
+  fi
   NAME=$(get_device_name "${COMMUNITY}" "${HOST}" "${PORT}" "${VERSION}")
 
   if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
