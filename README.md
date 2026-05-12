@@ -98,6 +98,7 @@ their defaults are:
 
 ```dockerfile
 ENV CFGMAKEROPTIONS=""
+ENV DEBUG="false"
 ENV ENABLE_V6="no"
 ENV GRAPHOPTIONS="growright, bits"
 ENV GROUPID="101"
@@ -113,6 +114,8 @@ ENV WEBDIR="/mrtg/html"
 ```
 
 The variable `CFGMAKEROPTIONS` (default: empty string) allows you to add any extra options passed to `cfgmaker`, e.g. `--zero-speed=1000000000 --show-op-down`. The options can be found in the [manpage](https://oss.oetiker.ch/mrtg/doc/cfgmaker.en.html) for `cfgmaker`.
+
+The variable `DEBUG` (default: "false") will enable debug logging in the container.  If you need to troubleshoot any issues with the container, set this to "true" to get more verbose logs.
 
 The variable `ENABLE_V6` (default: "no") will enable IPv6 support in the container.  If you need to monitor IPv6 devices, set this to "yes".
 
@@ -241,6 +244,13 @@ services:
 Once the instance is running, all you have to do is open a web browser and point it to `http://localhost:8880` or `http://<server_ip>:8880` and you will see the MRTG index page.
 
 ## ChangeLog
+
+### v2.6.0 - 2026.05.12
+- Enable SNMPv3 support (Fix #11)
+- Improved the overall security of the image
+- Hardening of the lighttpd configuration
+- Small refactor of the `14all.cgi` script to improve readability and maintainability
+- Reduced the verbosity of the logs and added the `DEBUG` environment variable to enable debug logging
 
 ### v2.5.8 - 2025.09.08
 - Fix the error reported in issue #33

@@ -1,18 +1,20 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 # Default configurations
 MIBSDIR=${MIBSDIR:-"/mrtg/mibs"}
 MRTGDIR=${MRTGDIR:-"/etc/mrtg"}
 WEBDIR=${WEBDIR:-"/mrtg/html"}
 MRTGCFG=${MRTGDIR}/mrtg.cfg
-CFGMAKEROPTIONS=${CFGMAKEROPTIONS:-""}
 ENABLE_V6=${ENABLE_V6:-"no"}
 GRAPHOPTIONS=${GRAPHOPTIONS:-"growright, bits"}
 HOSTS=${HOSTS:-""}
-INDEXMAKEROPTIONS=${INDEXMAKEROPTIONS:-""}
 MRTG_COLUMNS=${MRTG_COLUMNS:-"2"}
 PATHPREFIX=${PATHPREFIX:-""}
 REGENERATEHTML=${REGENERATEHTML:-"yes"}
+read -ra CFGMAKEROPTIONS   <<< "${CFGMAKEROPTIONS:-}"
+read -ra INDEXMAKEROPTIONS <<< "${INDEXMAKEROPTIONS:-}"
+
+[[ "${DEBUG:-}" == "true" ]] && set -x
 
 whoami() {
   if [ "$(id -u)" -eq 0 ]; then
@@ -111,7 +113,7 @@ generate_cfg() {
       --global "Options[_]: ${GRAPHOPTIONS}" \
       --global "EnableIPv6: ${ENABLE_V6}" \
       --global "LogFormat: rrdtool" \
-      ${CFGMAKEROPTIONS} \
+      "${CFGMAKEROPTIONS[@]}" \
       --snmp-options=:"${port}"::::3 \
       --enablesnmpv3 \
       --username="${community}" \
@@ -127,7 +129,7 @@ generate_cfg() {
       --global "Options[_]: ${GRAPHOPTIONS}" \
       --global "EnableIPv6: ${ENABLE_V6}" \
       --global "LogFormat: rrdtool" \
-      ${CFGMAKEROPTIONS} \
+      "${CFGMAKEROPTIONS[@]}" \
       --snmp-options=:"${port}"::::"${version//c/}" \
       --output="${MRTGDIR}/conf.d/${name}.cfg" "${community}@${host}"
   fi
@@ -194,7 +196,7 @@ regenerate_html() {
       --columns="${MRTG_COLUMNS}" \
       --rrdviewer="${PATHPREFIX}/cgi-bin/14all.cgi" \
       --prefix="${PATHPREFIX}/" \
-      ${INDEXMAKEROPTIONS} \
+      "${INDEXMAKEROPTIONS[@]}" \
       --output="${WEBDIR}/index.html"
     echo "HTML regenerated"
   fi
@@ -210,9 +212,9 @@ configure_icon_dir
 load_mibs
 
 if [ -n "${HOSTS}" ]; then
-  for asset in $(echo "${HOSTS}" | tr ',;' ' '); do
-    process_host "${asset}"
-  done
+  while IFS= read -r asset; do
+    [[ -n "${asset}" ]] && process_host "${asset}"
+  done < <(tr ',;' '\n' <<< "${HOSTS}")
 else
   COMMUNITY=${1:-"public"}
   HOST=${2:-"localhost"}

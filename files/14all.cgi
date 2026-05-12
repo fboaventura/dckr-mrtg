@@ -122,9 +122,9 @@ my $meurl = $q->url(-relative => 1);
 ensureSL(\$cfgfiledir);
 if (defined $q->param('cfg')) {
 	$cfgfile = $q->param('cfg');
-	# security fix: don't allow ./ in the config file name
-	print_error($q, "Illegal characters in cfg param: ./")
-		if $cfgfile =~ m'(^/)|(\./)';
+	# security fix: don't allow absolute paths, ./ or ../ in the config file name
+	print_error($q, "Illegal characters in cfg param")
+		if $cfgfile =~ m{(^/)|(\./)|(\.\./)};
 	$cfgfile = $cfgfiledir.$cfgfile unless -r $cfgfile;
 	print_error($q, "Cannot find the given config file: \<tt>$cfgfile\</tt>")
 		unless -r $cfgfile;
@@ -149,7 +149,155 @@ if (exists $config{refresh} && yesorno($config{refresh})
 	$config{refresh} = $config{interval} * 60;
 }
 
-my @headeropts = (@author, @style);
+my $modern_css = <<'ENDCSS';
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #222536;
+  --border: #2e3347;
+  --accent: #4f8ef7;
+  --accent2: #7c5cfc;
+  --text: #e2e8f0;
+  --text-muted: #8892a4;
+  --success: #34d399;
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent2); text-decoration: underline; }
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; }
+/* ── Page wrapper ── */
+.mrtg-page { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+/* ── Top bar ── */
+.mrtg-header {
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 18px; margin-bottom: 28px;
+}
+.mrtg-header h1 { font-size: 1.5rem; }
+.mrtg-header .badge {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px; letter-spacing: .04em;
+}
+/* ── Section headings ── */
+.mrtg-section-title {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin: 28px 0 12px;
+}
+/* ── Directory grid ── */
+.mrtg-dir-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px; margin-bottom: 24px;
+}
+.mrtg-dir-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  display: flex; align-items: center; gap: 10px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.mrtg-dir-card:hover {
+  border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.12);
+}
+.mrtg-dir-card .dir-icon {
+  font-size: 20px; flex-shrink: 0;
+}
+.mrtg-dir-card a { color: var(--text); font-weight: 500; font-size: .9rem; }
+.mrtg-dir-card a:hover { color: var(--accent); text-decoration: none; }
+/* ── Target grid ── */
+.mrtg-target-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.mrtg-target-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  transition: border-color .2s, box-shadow .2s, transform .15s;
+}
+.mrtg-target-card:hover {
+  border-color: var(--accent); box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+.mrtg-target-card-header {
+  padding: 12px 14px 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.mrtg-target-card-header .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); flex-shrink: 0;
+}
+.mrtg-target-card-header a {
+  color: var(--text); font-weight: 600; font-size: .9rem;
+}
+.mrtg-target-card-header a:hover { color: var(--accent); text-decoration: none; }
+.mrtg-target-card img {
+  display: block; width: 100%; height: auto;
+  border-top: 1px solid var(--border);
+}
+/* ── Detail / log page ── */
+.mrtg-detail-meta {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 18px;
+  margin-bottom: 24px; font-size: .9rem; color: var(--text-muted);
+}
+.mrtg-detail-meta strong { color: var(--text); }
+.mrtg-graph-section { margin-bottom: 32px; }
+.mrtg-graph-section h2 {
+  font-size: .85rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-muted); font-weight: 700; margin-bottom: 10px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.mrtg-graph-section img {
+  display: block; max-width: 100%; border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.mrtg-csv-links { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.mrtg-csv-btn {
+  display: inline-block; font-size: .75rem; font-weight: 600;
+  padding: 4px 12px; border-radius: 20px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text-muted); transition: all .2s;
+}
+.mrtg-csv-btn:hover {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+  text-decoration: none;
+}
+/* ── Footer ── */
+.mrtg-footer {
+  margin-top: 48px; padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.mrtg-footer-inner {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 12px;
+}
+.mrtg-footer-meta { font-size: .78rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; text-align: right; }
+.mrtg-footer-meta a { color: var(--text-muted); }
+.mrtg-footer-meta a:hover { color: var(--accent); }
+/* ── Error page ── */
+.mrtg-error {
+  background: #2a1414; border: 1px solid #7f2b2b;
+  color: #f87171; border-radius: var(--radius); padding: 20px 24px;
+  margin-top: 32px;
+}
+</style>
+ENDCSS
+
+my @headeropts = (@author, @style, -head => $modern_css);
 if (!$config{IconDir}) {
 	$config{IconDir} = $config{icondir} || $meurl;
 	$config{IconDir} .= '/' unless $config{IconDir} =~ m'/$';
@@ -158,37 +306,21 @@ if (!$config{IconDir}) {
 # the footer we print on every page
 $config{icondir} ||= ''; # lets have a default for this
 my $footer = <<"EOT" . ($q->end_html//'');
-<br/>
-<br/>
-<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
-  <TR>
-    <TD WIDTH=63><A ALT="MRTG"
-    HREF="http://oss.oetiker.ch/mrtg"><IMG
-    BORDER=0 SRC="$config{IconDir}mrtg-l.png"></A></TD>
-    <TD WIDTH=25><A ALT=""
-    HREF="http://oss.oetiker.ch/mrtg"><IMG
-    BORDER=0 SRC="$config{IconDir}mrtg-m.png"></A></TD>
-    <TD WIDTH=388><A ALT=""
-    HREF="http://oss.oetiker.ch/mrtg"><IMG
-    BORDER=0 SRC="$config{IconDir}mrtg-r.png"></A></TD>
-  </TR>
-</TABLE>
-<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
-  <TR VALIGN=top>
-  <TD WIDTH=88 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>Version ${MRTG_lib::VERSION}</FONT></TD>
-  <TD WIDTH=388 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>
-  <A HREF="http://tobi.oetiker.ch">Tobias Oetiker</A>
-  and
-  <A HREF="http://www.bungi.com">Dave&nbsp;Rand</A>
-  <TR VALIGN=top>
-  <TD WIDTH=88 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2><a
-    href="http://my14all.sourceforge.net/">$version</a></FONT></TD>
-  <TD WIDTH=388 ALIGN=RIGHT><FONT FACE="Arial,Helvetica" SIZE=2>
-  Rainer&nbsp;Bawidamann&nbsp;
-  <A HREF="mailto:bawidama\@users.sourceforge.net">&lt;bawidama\@users.sourceforge.net&gt;</A></FONT>
-  </TD>
-</TR>
-</TABLE>
+<footer class="mrtg-footer">
+  <div class="mrtg-footer-inner">
+    <div class="mrtg-footer-brand">
+      <a href="http://oss.oetiker.ch/mrtg" title="MRTG">
+        <img src="$config{IconDir}mrtg-l.png" alt="MRTG" style="height:28px;vertical-align:middle;">
+        <img src="$config{IconDir}mrtg-m.png" alt="" style="height:28px;vertical-align:middle;">
+        <img src="$config{IconDir}mrtg-r.png" alt="" style="height:28px;vertical-align:middle;">
+      </a>
+    </div>
+    <div class="mrtg-footer-meta">
+      <span>MRTG v${MRTG_lib::VERSION} &mdash; <a href="http://tobi.oetiker.ch">Tobias Oetiker</a> &amp; <a href="http://www.bungi.com">Dave Rand</a></span>
+      <span><a href="http://my14all.sourceforge.net/">$version</a> &mdash; <a href="mailto:bawidama\@users.sourceforge.net">Rainer Bawidamann</a></span>
+    </div>
+  </div>
+</footer>
 EOT
 
 ### the main switch
@@ -213,7 +345,10 @@ if (defined $q->param('dir')) {
 	#	push @htmlhead, (-head => $targets{addhead}{_});
 	#}
 	print $q->header(@httphead), $q->start_html(@htmlhead);
-	print $q->h1("Available Targets"),"\n\<table width=100\%>\n";
+	print '<div class="mrtg-page">';
+	print '<div class="mrtg-header"><h1>' . $q->escapeHTML("Group: $dir") . '</h1><span class="badge">MRTG</span></div>';
+	print '<p class="mrtg-section-title">Targets</p>';
+	print '<div class="mrtg-target-grid">';
 	my $cfgstr = (defined $q->param('cfg') ? "&cfg=".$q->param('cfg') : '');
 	my $column = 0;
 	my $pngdir = getdirwriteable($config{imagedir},$dir);
@@ -228,33 +363,21 @@ if (defined $q->param('dir')) {
 		next if $tar =~ m/^[\$\^\_]$/; # _ is not a real target
 		next if $targets{directory}{$tar} ne $dir;
 		$descr = $targets{pagetop}{$tar}; ###GVOLK
-	#system("/bin/echo", $descr);
-		#print "system "/bin/echo $descr"";
-
-#system "/bin/echo \" $pager_name \n\r $pretty_number\" | /bin/mail $pager_email 2>&1";
-
-		print '<tr>' if $column == 0;
-		print '<td>',
-			$q->br($q->a({href => "$meurl?log=$tar$cfgstr"}, $targets{title}{$tar}));   ###GVOLK
-			#$q->p($q->a({href => "$meurl?log=$tar$cfgstr"}, $targets{title}{$tar}));   ###GVOLK
-		#print '<p>'; ###GVOLK - 2010-12-29
-		print $q->a({href => "$meurl?log=$tar$cfgstr"},
-			$q->img({src => "$meurl?log=$tar&png=$small&small=1$cfgstr",
-				alt => "index-graph",
-				getpngsize("$pngdir$tar-$small-i.png")})
-			) if defined $small;
-		print "\</td>\n";
-		$column++;
-		if ($column >= $confcolumns) {
-			$column = 0;
-			print '</tr>';
-		} 
-		#print '<p>';
+		print '<div class="mrtg-target-card">';
+		print '<div class="mrtg-target-card-header"><span class="dot"></span>'
+			. $q->a({href => "$meurl?log=$tar$cfgstr"}, $targets{title}{$tar})
+			. '</div>';
+		if (defined $small) {
+			print $q->a({href => "$meurl?log=$tar$cfgstr"},
+				$q->img({src => "$meurl?log=$tar&png=$small&small=1$cfgstr",
+					alt => "index-graph",
+					getpngsize("$pngdir$tar-$small-i.png")}));
+		}
+		print '</div>' . "\n";
 	}
-	if ($column != 0 and $column < $confcolumns) {
-		print '<td>&nbsp;</td>' x ($confcolumns - $column),"\</tr>\n";
-	}
-	print '</table>', $footer;
+	print '</div>'; # end mrtg-target-grid
+	print $footer;
+	print '</div>'; # end mrtg-page
 } elsif (defined $q->param('png')) {
 	# send a graphic, create it if necessary
 	my $errstr = '';
@@ -528,9 +651,9 @@ if (defined $q->param('dir')) {
 	log_rrdtool_call($config{'14all*rrdtoollog'},$e,'graph',@args);
 	if ($e) {
 		if (!-w $pngdir) {
-			$errstr = "cannot write to graph dir $pngdir\nrrdtool error: $e";
+			$errstr = "cannot write to graph directory\nrrdtool error: $e";
 		} elsif (-e $pngfile and !-w _) {
-			$errstr = "cannot write $pngfile\nrrdtool error: $e";
+			$errstr = "cannot write graph file\nrrdtool error: $e";
 		} elsif (-e $pngfile) {
 			if (unlink($pngfile)) {
 				# try rrdtool a second time
@@ -539,7 +662,7 @@ if (defined $q->param('dir')) {
 				log_rrdtool_call($config{'14all*rrdtoollog'},$e,'graph',@args);
 				$errstr = $e ? $errstr."\nrrdtool error from 2. call: $e" : '';
 			} else {
-				$errstr = "cannot delete file $pngfile: $!";
+				$errstr = "cannot delete graph file: $!";
 			}
 		} else {
 			$errstr = "cannot create graph\nrrdtool error: $e";
@@ -564,8 +687,9 @@ if (defined $q->param('dir')) {
 		exit 0;
 	}
 	$log ||= '_';
-	if (defined $targets{options}{'14all*errorpic'}{$log} &&
-			open(PNG, $targets{options}{'14all*errorpic'}{$log})) {
+	my $epicpath = $targets{options}{'14all*errorpic'}{$log};
+	if (defined $epicpath && $epicpath !~ m{(^/)|(\.\.\/)} &&
+			open(PNG, $epicpath)) {
 		print $q->header(-type => "image/png", -expires => 'now');
 		binmode(PNG); binmode(STDOUT);
 		while(read PNG, my $buf,16384) { print STDOUT $buf; }
@@ -598,6 +722,8 @@ if (defined $q->param('dir')) {
 		push @htmlhead, (-head => $targets{addhead}{$log});
 	}
 	print $q->header(@httphead), $q->start_html(@htmlhead);
+	print '<div class="mrtg-page">';
+	print '<div class="mrtg-header"><h1>' . $q->escapeHTML($title) . '</h1><span class="badge">MRTG</span></div>';
 	# user defined header line? (should exist as mrtg requires it)
 	print $targets{pagetop}{$log},"\n";
 	my $rrd = $config{logdir}.$targets{directory}{$log} . $log . '.rrd';
@@ -608,9 +734,11 @@ if (defined $q->param('dir')) {
 	my $cfgstr = (defined $q->param('cfg') ? "&cfg=".$q->param('cfg') : '');
 	my $rrdstr = (defined $q->param('log') ? "&rrd=".$q->param('log').".rrd" : '');
 
-	print $q->hr,
-		"The statistics were last updated(Timezone = ". $timezone ."): ",$q->b(scalar(localtime($lasttime))),
-		$q->hr if $lasttime ;
+	if ($lasttime) {
+		print '<div class="mrtg-detail-meta">Last updated &nbsp;&mdash;&nbsp; '
+			. '<strong>' . scalar(localtime($lasttime)) . '</strong>'
+			. ' &nbsp;(TZ: ' . $q->escapeHTML($timezone) . ')</div>';
+	}
 	my $sup = $targets{suppress}{$log} || '';
 	my $url = "$meurl?log=$log";
         my $exporturl = "rrd-export.cgi?log=$log";
@@ -635,94 +763,65 @@ if (defined $q->param('dir')) {
         my $cfstr;
         my $rangestr;
 	if ($sup !~ /d/) {
-		print $q->h2("'Daily' graph (5 Minute Average)"),"\n",
-			$q->img({src => "$url=daily", alt => "daily-graph",
+		print '<div class="mrtg-graph-section"><h2>Daily Graph &mdash; 5 Minute Average</h2>';
+		print $q->img({src => "$url=daily", alt => "daily-graph",
 				getpngsize("$pngdir$log-daily.png")}
 			), "\n";
-
-	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
-           $cfstr="&cf=AVERAGE";
-           $rangestr="&range=240000";
-
-           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
-           print "<br>CSV Export (Last 64 Hours, 5 Minute Average)\n";
-           print "</a>";
-	   # ^^^^^   Added for CSV output links (see 2009-02-27 note below)
+		$cfstr="&cf=AVERAGE";
+		$rangestr="&range=240000";
+		print '<div class="mrtg-csv-links">';
+		print $q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr", class => "mrtg-csv-btn"}, "&#8659; CSV Last 64h (5min Avg)");
+		print '</div>';
+		print '</div>';
 	}
-
 
 	if ($sup !~ /w/) {
-		print $q->h2("'Weekly' graph (30 Minute Average)"),"\n",
-			$q->img({src => "$url=weekly", alt => "weekly-graph",
+		print '<div class="mrtg-graph-section"><h2>Weekly Graph &mdash; 30 Minute Average</h2>';
+		print $q->img({src => "$url=weekly", alt => "weekly-graph",
 				getpngsize("$pngdir$log-weekly.png")}
 			), "\n";
-
-	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
-           $cfstr="&cf=AVERAGE";
-           $rangestr="&range=1440000";
-           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
-           print "<br>CSV Export (Last 16 Days, 30 Minute Average)\n";
-           print "</a>";
- 
-           $cfstr="&cf=MAX";
-           $rangestr="&range=1440000";
-           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
-           print "<br>CSV Export (Last 16 Days, 30 Minute Maximum)\n";
-           print "</a>";
-	   # ^^^^^   Added for CSV output links (see 2009-02-27 note below)
+		print '<div class="mrtg-csv-links">';
+		$cfstr="&cf=AVERAGE"; $rangestr="&range=1440000";
+		print $q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr", class => "mrtg-csv-btn"}, "&#8659; CSV Last 16d (30min Avg)");
+		$cfstr="&cf=MAX"; $rangestr="&range=1440000";
+		print $q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr", class => "mrtg-csv-btn"}, "&#8659; CSV Last 16d (30min Max)");
+		print '</div>';
+		print '</div>';
 	}
-
-
 
 	if ($sup !~ /m/) {
-		print $q->h2("'Monthly' graph (2 Hour Average)"),"\n",
-			$q->img({src => "$url=monthly", alt => "monthly-graph",
+		print '<div class="mrtg-graph-section"><h2>Monthly Graph &mdash; 2 Hour Average</h2>';
+		print $q->img({src => "$url=monthly", alt => "monthly-graph",
 				getpngsize("$pngdir$log-monthly.png")}
 			), "\n";
-	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
-           $cfstr="&cf=AVERAGE";
-           $rangestr="&range=5760000";
-           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
-           print "<br>CSV Export (Last 64 Days, 2 Hour Average)\n";
-           print "</a>";
-
-           $cfstr="&cf=MAX";
-           $rangestr="&range=5760000";
-           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
-           print "<br>CSV Export (Last 64 Days, 2 Hour Maximum)\n";
-           print "</a>";
-	   # ^^^^^   Added for CSV output links (see 2009-02-27 note below)
+		print '<div class="mrtg-csv-links">';
+		$cfstr="&cf=AVERAGE"; $rangestr="&range=5760000";
+		print $q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr", class => "mrtg-csv-btn"}, "&#8659; CSV Last 64d (2h Avg)");
+		$cfstr="&cf=MAX"; $rangestr="&range=5760000";
+		print $q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr", class => "mrtg-csv-btn"}, "&#8659; CSV Last 64d (2h Max)");
+		print '</div>';
+		print '</div>';
 	}
-
-
-
 
 	if ($sup !~ /y/) {
-		print $q->h2("'Yearly' graph (1 Day Average)"),"\n",
-			$q->img({src => "$url=yearly", alt => "yearly-graph",
+		print '<div class="mrtg-graph-section"><h2>Yearly Graph &mdash; 1 Day Average</h2>';
+		print $q->img({src => "$url=yearly", alt => "yearly-graph",
 				getpngsize("$pngdir$log-yearly.png")}
 			), "\n";
-
-	   # vvvvv   Added for CSV output links (see 2009-02-27 note below)
-           $cfstr="&cf=AVERAGE";
-           $rangestr="&range=69120000";
-           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
-           print "<br>CSV Export (Last 800 days, 24 Hour Average)\n";
-           print "</a>";
-
-           $cfstr="&cf=MAX";
-           $rangestr="&range=69120000";
-           print $q->td($q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr"})),"\n";
-           print "<br>CSV Export (Last 800 days, 24 Hour Maximum)\n";
-           print "</a>";
-	   # ^^^^   Added for CSV output links (see 2009-02-27 note below)
+		print '<div class="mrtg-csv-links">';
+		$cfstr="&cf=AVERAGE"; $rangestr="&range=69120000";
+		print $q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr", class => "mrtg-csv-btn"}, "&#8659; CSV Last 800d (24h Avg)");
+		$cfstr="&cf=MAX"; $rangestr="&range=69120000";
+		print $q->a({href => "$meurl?&csv=1$rrdstr$cfgstr$cfstr$rangestr$factorstr", class => "mrtg-csv-btn"}, "&#8659; CSV Last 800d (24h Max)");
+		print '</div>';
+		print '</div>';
 	}
-
 
 	if ($targets{pagefoot}{$log}) {
 		print $targets{pagefoot}{$log};
 	}
 	print $footer;
+	print '</div>'; # end mrtg-page
 
 } elsif (defined $q->param('csv')) {   # execute this if ?csv parm is set
 	# This was added 2009-02-27 by Greg Volk <gvolk@gvolk.com>
@@ -774,7 +873,8 @@ if (defined $q->param('dir')) {
 	my ($dir,$ds0name,$ds1name,$element,$time,$yyyy,$mm,$dd,$hour,
 	    $min,$sec,@array,$lt,$hhmmss);
 
-        print_error($q, "Illegal characters in rrd param: ./") if $rrd =~ m'(^/)|(\./)';
+        print_error($q, "Illegal characters in rrd param") if $rrd =~ m{(^/)|(\./)|(\.\./)};
+
 
         $tar =~ s/\.rrd//g;			# remove ".rrd" from targetname
 
@@ -865,6 +965,8 @@ if (defined $q->param('dir')) {
 	#	push @htmlhead, (-head => $targets{addhead}{_});
 	#}
 	print $q->header(@httphead), $q->start_html(@htmlhead);
+	print '<div class="mrtg-page">';
+	print '<div class="mrtg-header"><h1>MRTG Network Statistics</h1><span class="badge">LIVE</span></div>';
 	my (@dirs, %dirs, @logs);
 	# get the list of directories and "root"-targets
 	foreach my $tar (@sorted) {
@@ -878,31 +980,22 @@ if (defined $q->param('dir')) {
 		}
 	}
 	my $cfgstr = (defined $q->param('cfg') ? "&cfg=".$q->param('cfg') : '');
-	print $q->h1("Available Targets"),"\n";
 	my $confcolumns = $config{'14all*columns'} || 2;
 	if ($#dirs > -1) {
-		print $q->h2("Directories"),"\n\<table width=100\%>\n";
-		my $column = 0;
+		print '<p class="mrtg-section-title">Directories</p>';
+		print '<div class="mrtg-dir-grid">';
 		foreach my $tar (@dirs) {
-			print '<tr>' if $column == 0;
 			(my $link = $tar) =~ s/ /\+/g;
 			chop $tar; # remove / for display (from ensureSL)
-			print $q->td($q->a({href => "$meurl?dir=$link$cfgstr"},
-				$tar)),"\n";
-			$column++;
-			if ($column >= $confcolumns) {
-				$column = 0;
-				print '</tr>';
-			}
+			print '<div class="mrtg-dir-card"><span class="dir-icon">&#128193;</span>'
+				. $q->a({href => "$meurl?dir=$link$cfgstr"}, $tar)
+				. '</div>' . "\n";
 		}
-		if ($column != 0 and $column < $confcolumns) {
-			print '<td>&nbsp;</td>' x ($confcolumns - $column),"\</tr>\n";
-		}
-		print '</table><hr>';
+		print '</div>';
 	}
 	if ($#logs > -1) {
-		print $q->h2("Targets"),"\n\<table width=100\%>\n";
-		my $column = 0;
+		print '<p class="mrtg-section-title">Targets</p>';
+		print '<div class="mrtg-target-grid">';
 		foreach my $tar (@logs) {
 			my $small = 0;
 			unless (yesorno($targets{'14all*dontshowindexgraph'}{$tar})) {
@@ -910,27 +1003,22 @@ if (defined $q->param('dir')) {
 				$small = 'daily.s' unless $small;
 			}
 			next if $tar =~ m/^[\$\^_]$/;
-			print '<tr>' if $column == 0;
-			print '<td>',
-				$q->p($q->a({href => "$meurl?log=$tar$cfgstr"},$targets{title}{$tar}));
-			print $q->a({href => "$meurl?log=$tar$cfgstr"},
-				$q->img({src => "$meurl?log=$tar&png=$small&small=1$cfgstr",
-					alt => "index-graph",
-					getpngsize(getdirwriteable($config{imagedir},'')."$tar-$small-i.png")}))
-				if $small;
-			print "\</td>\n";
-			$column++;
-			if ($column >= $confcolumns) {
-				$column = 0;
-				print '</tr>';
+			print '<div class="mrtg-target-card">';
+			print '<div class="mrtg-target-card-header"><span class="dot"></span>'
+				. $q->a({href => "$meurl?log=$tar$cfgstr"}, $targets{title}{$tar})
+				. '</div>';
+			if (defined $small) {
+				print $q->a({href => "$meurl?log=$tar$cfgstr"},
+					$q->img({src => "$meurl?log=$tar&png=$small&small=1$cfgstr",
+						alt => "index-graph",
+						getpngsize(getdirwriteable($config{imagedir},'')."$tar-$small-i.png")}));
 			}
+			print '</div>' . "\n";
 		}
-		if ($column != 0 and $column < $confcolumns) {
-			print '<td>&nbsp;</td>' x ($confcolumns - $column),"\</tr>\n";
-		}
-		print '</table>';
+		print '</div>';
 	}
 	print $footer;
+	print '</div>';
 }
 exit 0;
 
@@ -939,11 +1027,14 @@ sub print_error($@)
 	my $q = shift;
 	print $q->header(),
 		$q->start_html(
-			-title => 'MRTG/RRD index.cgi - Script error',
-			-bgcolor => '#ffffff'
+			-title => 'MRTG/RRD - Error',
+			-head => $modern_css,
 		),
-		$q->h1('Script Error'),
-		@_, $q->end_html();
+		'<div class="mrtg-page"><div class="mrtg-header"><h1>MRTG</h1></div>',
+		'<div class="mrtg-error"><strong>Error:</strong> ',
+		@_,
+		'</div></div>',
+		$q->end_html();
 	exit 0;
 }
 
