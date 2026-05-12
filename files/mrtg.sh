@@ -66,25 +66,71 @@ get_snmp_version() {
   [[ "$1" == "2" || -z "$1" ]] && echo "2c" || echo "$1"
 }
 
+normalize_privproto() {
+  case "${1,,}" in
+    aes|aes128|aescfb128) echo "aescfb128" ;;
+    aes192|aescfb192)     echo "aescfb192" ;;
+    aes256|aescfb256)     echo "aescfb256" ;;
+    3des|3desede)         echo "3desede"   ;;
+    *)                    echo "${1,,}"    ;;
+  esac
+}
+
 get_device_name() {
   local community=$1 host=$2 port=$3 version=$4
+  local authproto=$5 authpass=$6 privproto=$7 privpass=$8 seclevel=$9
   local snmp_ver name
   snmp_ver=$(get_snmp_version "${version}")
-  name=$(snmpwalk -Oqv -v"${snmp_ver}" -c "${community}" "${host}:${port}" .1.3.6.1.2.1.1.5)
+
+  if [[ "${snmp_ver}" == "3" ]]; then
+    name=$(snmpwalk -Oqv -v3 \
+      -u "${community}" \
+      -l "${seclevel:-noAuthNoPriv}" \
+      ${authproto:+-a "${authproto}"} \
+      ${authpass:+-A "${authpass}"} \
+      ${privproto:+-x "${privproto}"} \
+      ${privpass:+-X "${privpass}"} \
+      "${host}:${port}" .1.3.6.1.2.1.1.5)
+  else
+    name=$(snmpwalk -Oqv -v"${snmp_ver}" -c "${community}" "${host}:${port}" .1.3.6.1.2.1.1.5)
+  fi
+
   trim "${name:-${host}}" | tr '[:upper:]' '[:lower:]' | tr '[:space:]' '_'
 }
 
 generate_cfg() {
   local community=$1 host=$2 version=$3 port=$4 name=$5
-  /usr/bin/cfgmaker \
-    --ifref=name \
-    --global "WorkDir: ${WEBDIR}" \
-    --global "Options[_]: ${GRAPHOPTIONS}" \
-    --global "EnableIPv6: ${ENABLE_V6}" \
-    --global "LogFormat: rrdtool" \
-    ${CFGMAKEROPTIONS} \
-    --snmp-options=:"${port}"::::"${version//c/}" \
-    --output="${MRTGDIR}/conf.d/${name}.cfg" "${community}@${host}"
+  local authproto=$6 authpass=$7 privproto=$8 privpass=$9 seclevel=${10}
+
+  if [[ "${version//c/}" == "3" ]]; then
+    local norm_privproto
+    norm_privproto=$(normalize_privproto "${privproto}")
+    /usr/bin/cfgmaker \
+      --ifref=name \
+      --global "WorkDir: ${WEBDIR}" \
+      --global "Options[_]: ${GRAPHOPTIONS}" \
+      --global "EnableIPv6: ${ENABLE_V6}" \
+      --global "LogFormat: rrdtool" \
+      ${CFGMAKEROPTIONS} \
+      --snmp-options=:"${port}"::::3 \
+      --enablesnmpv3 \
+      --username="${community}" \
+      ${authproto:+--authprotocol="${authproto,,}"} \
+      ${authpass:+--authpassword="${authpass}"} \
+      ${norm_privproto:+--privprotocol="${norm_privproto}"} \
+      ${privpass:+--privpassword="${privpass}"} \
+      --output="${MRTGDIR}/conf.d/${name}.cfg" "${community}@${host}"
+  else
+    /usr/bin/cfgmaker \
+      --ifref=name \
+      --global "WorkDir: ${WEBDIR}" \
+      --global "Options[_]: ${GRAPHOPTIONS}" \
+      --global "EnableIPv6: ${ENABLE_V6}" \
+      --global "LogFormat: rrdtool" \
+      ${CFGMAKEROPTIONS} \
+      --snmp-options=:"${port}"::::"${version//c/}" \
+      --output="${MRTGDIR}/conf.d/${name}.cfg" "${community}@${host}"
+  fi
 }
 
 check_host_alive() {
@@ -100,17 +146,35 @@ check_host_alive() {
 
 process_host() {
   local asset=$1
-  local community host version port name
-  read -r community host version port < <(echo "${asset//:/ }")
+  local community host version port authproto authpass privproto privpass seclevel name
+  IFS=':' read -r community host version port authproto authpass privproto privpass <<< "${asset}"
   port=${port:-161}
+
   if ! check_host_alive "${host}" "${port}"; then
     return
   fi
-  version=$(get_snmp_version "${version}")
-  name=$(get_device_name "${community}" "${host}" "${port}" "${version}")
 
-  if [[ ! -f "${MRTGDIR}/conf.d/${name}.cfg" ]]; then
-    generate_cfg "${community}" "${host}" "${version}" "${port}" "${name}"
+  version=$(get_snmp_version "${version}")
+
+  if [[ "${version}" == "3" ]]; then
+    if [[ -n "${privpass}" ]]; then
+      seclevel="authPriv"
+    elif [[ -n "${authpass}" ]]; then
+      seclevel="authNoPriv"
+    else
+      seclevel="noAuthNoPriv"
+    fi
+    name=$(get_device_name "${community}" "${host}" "${port}" "${version}" \
+      "${authproto}" "${authpass}" "${privproto}" "${privpass}" "${seclevel}")
+    if [[ ! -f "${MRTGDIR}/conf.d/${name}.cfg" ]]; then
+      generate_cfg "${community}" "${host}" "${version}" "${port}" "${name}" \
+        "${authproto}" "${authpass}" "${privproto}" "${privpass}" "${seclevel}"
+    fi
+  else
+    name=$(get_device_name "${community}" "${host}" "${port}" "${version}")
+    if [[ ! -f "${MRTGDIR}/conf.d/${name}.cfg" ]]; then
+      generate_cfg "${community}" "${host}" "${version}" "${port}" "${name}"
+    fi
   fi
 }
 
@@ -154,14 +218,35 @@ else
   HOST=${2:-"localhost"}
   VERSION=${3:-"2"}
   PORT=${4:-"161"}
+  AUTHPROTO=${5:-""}
+  AUTHPASS=${6:-""}
+  PRIVPROTO=${7:-""}
+  PRIVPASS=${8:-""}
   if ! check_host_alive "${HOST}" "${PORT}"; then
     echo "Host ${HOST}:${PORT} is not reachable. Exiting."
     exit 1
   fi
-  NAME=$(get_device_name "${COMMUNITY}" "${HOST}" "${PORT}" "${VERSION}")
+  VERSION=$(get_snmp_version "${VERSION}")
 
-  if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
-    generate_cfg "${COMMUNITY}" "${HOST}" "${VERSION}" "${PORT}" "${NAME}"
+  if [[ "${VERSION}" == "3" ]]; then
+    if [[ -n "${PRIVPASS}" ]]; then
+      SECLEVEL="authPriv"
+    elif [[ -n "${AUTHPASS}" ]]; then
+      SECLEVEL="authNoPriv"
+    else
+      SECLEVEL="noAuthNoPriv"
+    fi
+    NAME=$(get_device_name "${COMMUNITY}" "${HOST}" "${PORT}" "${VERSION}" \
+      "${AUTHPROTO}" "${AUTHPASS}" "${PRIVPROTO}" "${PRIVPASS}" "${SECLEVEL}")
+    if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
+      generate_cfg "${COMMUNITY}" "${HOST}" "${VERSION}" "${PORT}" "${NAME}" \
+        "${AUTHPROTO}" "${AUTHPASS}" "${PRIVPROTO}" "${PRIVPASS}" "${SECLEVEL}"
+    fi
+  else
+    NAME=$(get_device_name "${COMMUNITY}" "${HOST}" "${PORT}" "${VERSION}")
+    if [[ ! -f "${MRTGDIR}/conf.d/${NAME}.cfg" ]]; then
+      generate_cfg "${COMMUNITY}" "${HOST}" "${VERSION}" "${PORT}" "${NAME}"
+    fi
   fi
 fi
 

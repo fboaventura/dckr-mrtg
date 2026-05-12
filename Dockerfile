@@ -26,6 +26,7 @@ RUN apk add --update --no-cache \
     netcat-openbsd \
     perl-cgi \
     perl-dev \
+    perl-net-snmp \
     perl-rrd \
     rrdtool-cgi \
     rrdtool \

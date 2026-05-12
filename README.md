@@ -101,7 +101,7 @@ ENV CFGMAKEROPTIONS=""
 ENV ENABLE_V6="no"
 ENV GRAPHOPTIONS="growright, bits"
 ENV GROUPID="101"
-ENV HOSTS "community:host[:version[:port]]"
+ENV HOSTS "community:host[:version[:port]] or username:host:3[:port[:authproto[:authpass[:privproto[:privpass]]]]]"
 ENV INDEXMAKEROPTIONS=""
 ENV MIBSDIR="/mrtg/mibs"
 ENV MRTG_COLUMNS=2
@@ -121,15 +121,52 @@ The variable `GRAPHOPTIONS` (default: "growright, bits") will configure the grap
 The variable `GROUPID` (default: 101) defines the groupid for the lighttpd user.
  Normally this value should be set to the same value as `USERID`, but other values can be used depending on your needs.
 
-The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  The format to be used
-is `community:host[:version[:port]],community:host[:version:[port]],...`
+The variable `HOSTS` is where you may set the hosts that MRTG will monitor.  Multiple hosts are separated by commas or semicolons.
 
-  Where:
+**SNMPv1 / SNMPv2c format** (existing):
 
-  * **_community_**: is the SNMP community with read access
-  * **_host_**: is the IP address or hostname (if Docker can resolve it)
-  * **_version_**: can be `1` or `2` for SNMP **1** or **2c**.  If left empty it will assume **2c**.
-  * **_port_**: can be any custom port.  There is one point of attention, if the port is needed, then the version must be set.
+```
+community:host[:version[:port]]
+```
+
+  * **_community_**: SNMP community string with read access
+  * **_host_**: IP address or hostname (if Docker can resolve it)
+  * **_version_**: `1` or `2` for SNMP **v1** or **v2c**.  If left empty it will assume **v2c**.
+  * **_port_**: custom SNMP port (default: 161).  If port is needed, version must also be set.
+
+**SNMPv3 format**:
+
+```
+username:host:3[:port[:authproto[:authpass[:privproto[:privpass]]]]]
+```
+
+  * **_username_**: SNMPv3 security name
+  * **_host_**: IP address or hostname
+  * **_version_**: must be `3`
+  * **_port_**: custom SNMP port (default: 161)
+  * **_authproto_**: authentication protocol — `MD5`, `SHA`, `SHA256`, `SHA384`, or `SHA512`
+  * **_authpass_**: authentication passphrase
+  * **_privproto_**: privacy (encryption) protocol — `DES`, `AES`, `AES192`, or `AES256`
+  * **_privpass_**: privacy passphrase
+
+The security level is inferred automatically: `noAuthNoPriv` when no auth params are given, `authNoPriv` when only auth params are given, and `authPriv` when both auth and privacy params are given.
+
+Examples:
+
+```
+# SNMPv2c
+public:192.168.0.1
+public:192.168.0.1:2:161
+
+# SNMPv3 — authPriv (SHA + AES)
+myuser:192.168.0.1:3:161:SHA:myauthpass:AES:myprivpass
+
+# SNMPv3 — authNoPriv (SHA only)
+myuser:192.168.0.1:3:161:SHA:myauthpass
+
+# SNMPv3 — noAuthNoPriv
+myuser:192.168.0.1:3
+```
 
 The variable `INDEXMAKEROPTIONS` (default: empty string) allows you to add any extra options passed to `indexmaker`, e.g. `--nolegend`. The options can be found in the [manpage](https://oss.oetiker.ch/mrtg/doc/indexmaker.en.html) for `indexmaker`.
 
