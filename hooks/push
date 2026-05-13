@@ -1,4 +1,4 @@
-##!/bin/bash
+#!/bin/bash
 ## This script pushes the Docker image to the repository using the cache built from the build script and tagging
 ## accordingly.
 #
